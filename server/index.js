@@ -4,19 +4,20 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 
 const app = express();
-const PORT = 3001;
+// CRITICAL FIX: Use environment port for cPanel/CloudLinux
+const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
 
 // Database Connection
-// REMPLACER AVEC VOS INFOS MYSQL LOCALES
+// Ensure these match your cPanel MySQL Database credentials
 const db = mysql.createPool({
-  host: 'localhost',
-  user: 'root', 
-  password: '', 
-  database: 'novitec_db'
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'root', 
+  password: process.env.DB_PASSWORD || '', 
+  database: process.env.DB_NAME || 'novitec_db'
 });
 
 // --- HELPER FUNCTIONS ---
@@ -35,7 +36,6 @@ const query = (sql, params) => {
 app.get('/api/posts', async (req, res) => {
   try {
     const results = await query('SELECT * FROM posts ORDER BY id DESC');
-    // Convert ID to string for frontend compatibility
     const formatted = results.map(r => ({...r, id: r.id.toString()}));
     res.json(formatted);
   } catch (e) { res.status(500).send(e); }
@@ -208,7 +208,6 @@ app.get('/api/settings', async (req, res) => {
     const results = await query('SELECT * FROM site_settings WHERE id = 1');
     if(results.length > 0) {
         const r = results[0];
-        // Reconstruct nested announcement object
         const settings = {
             ...r,
             announcement: {
@@ -217,7 +216,6 @@ app.get('/api/settings', async (req, res) => {
                 type: r.announcement_type
             }
         };
-        // Remove flat keys
         delete settings.announcement_active;
         delete settings.announcement_message;
         delete settings.announcement_type;
@@ -239,5 +237,5 @@ app.put('/api/settings', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });

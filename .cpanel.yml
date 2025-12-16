@@ -1,0 +1,14 @@
+---
+deployment:
+  tasks:
+    # IMPORTANT : Remplacez 'UTILISATEUR' par votre nom d'utilisateur cPanel réel
+    # et 'public_html' par le bon dossier si vous utilisez un sous-domaine.
+    
+    # Étape 1 : Définir le chemin de destination
+    - export DEPLOYPATH=/home/UTILISATEUR/public_html/
+    
+    # Étape 2 : Copier les fichiers du dossier de build (dist) vers le dossier public
+    # Note: Vous devez avoir buildé l'application (npm run build) AVANT de push 
+    # et commité le dossier 'dist', OU avoir configuré un build sur le serveur.
+    # Pour un déploiement simple, copiez le contenu du build.
+    - /bin/cp -R dist/* $DEPLOYPATH
