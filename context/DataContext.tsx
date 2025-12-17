@@ -1,10 +1,17 @@
 
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 
-// Détection de l'URL API
-const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-  ? 'http://localhost:3001/api'
-  : '/api';
+// Détection intelligente de l'URL API
+const getBaseUrl = () => {
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://localhost:3001/api';
+  }
+  // En production sur cPanel, on utilise le chemin relatif /api
+  // Le .htaccess s'assurera que cette requête ne soit pas interceptée par React
+  return '/api';
+};
+
+const API_BASE_URL = getBaseUrl();
 
 // Interfaces
 export interface BlogPost { id: string; title: string; excerpt: string; content: string; category: string; author: string; date: string; imageUrl: string; }
@@ -60,34 +67,41 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [incidents, setIncidents] = useState<IncidentItem[]>([]);
 
   const fetchAll = async () => {
+    console.log(`[Data] Fetching from: ${API_BASE_URL}`);
     try {
       const endpoints = ['posts', 'jobs', 'settings', 'team', 'clients', 'story', 'partners/strategic', 'partners/standard', 'status', 'incidents'];
       const responses = await Promise.all(
         endpoints.map(e => 
           fetch(`${API_BASE_URL}/${e}`)
-            .then(r => r.ok ? r.json() : [])
-            .catch(() => [])
+            .then(r => {
+                if(!r.ok) throw new Error(`Endpoint ${e} error`);
+                return r.json();
+            })
+            .catch(err => {
+                console.warn(`Failed endpoint: ${e}`, err);
+                return null;
+            })
         )
       );
       
-      setPosts(responses[0]);
-      setJobs(responses[1]);
+      if(responses[0]) setPosts(responses[0]);
+      if(responses[1]) setJobs(responses[1]);
       if(responses[2] && responses[2].companyName) setSettings(responses[2]);
-      setTeamMembers(responses[3]);
-      setClientLogos(responses[4]);
+      if(responses[3]) setTeamMembers(responses[3]);
+      if(responses[4]) setClientLogos(responses[5]);
       if(responses[5] && responses[5].foundingYear) setCompanyStory(responses[5]);
-      setStrategicPartners(responses[6]);
-      setStandardPartners(responses[7]);
-      setSystemStatus(responses[8]);
-      setIncidents(responses[9]);
+      if(responses[6]) setStrategicPartners(responses[6]);
+      if(responses[7]) setStandardPartners(responses[7]);
+      if(responses[8]) setSystemStatus(responses[8]);
+      if(responses[9]) setIncidents(responses[9]);
     } catch (e) { 
-      console.error("Fetch all failed", e);
+      console.error("Critical Fetch Error:", e);
     }
   };
 
   useEffect(() => { fetchAll(); }, []);
 
-  // CRUD Methods (Simplified for the example)
+  // CRUD Methods
   const addPost = async (post: any) => {
     await fetch(`${API_BASE_URL}/posts`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(post) });
     fetchAll();

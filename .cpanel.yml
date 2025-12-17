@@ -1,5 +1,7 @@
+
 ---
 deployment:
   tasks:
     - export DEPLOYPATH=/home/groupenovitec/public_html/
     - /bin/cp -R dist/* $DEPLOYPATH
+    - /bin/cp .htaccess $DEPLOYPATH
