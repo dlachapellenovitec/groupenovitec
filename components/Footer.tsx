@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, Mail, Phone, MapPin, Linkedin, Facebook, Lock, Hexagon } from 'lucide-react';
+import { Shield, Mail, Phone, MapPin, Linkedin, Facebook, Lock, Hexagon, Activity } from 'lucide-react';
 import { useData } from '../context/DataContext';
 
 const Footer: React.FC = () => {
@@ -62,6 +62,7 @@ const Footer: React.FC = () => {
               </li>
               <li><Link to="/blog" className="hover:text-white transition-colors">Blog & Ressources</Link></li>
               <li><Link to="/support" className="hover:text-white transition-colors">Portail Client</Link></li>
+              <li><Link to="/status" className="hover:text-green-400 transition-colors flex items-center gap-2"><Activity className="w-3 h-3 text-green-500" /> État des Services</Link></li>
             </ul>
           </div>
 

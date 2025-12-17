@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
-import { useData, BlogPost, JobPosting, SiteSettings, TeamMember, CompanyStory, ClientLogo, StrategicPartner, StandardPartner } from '../context/DataContext';
+import { useData, BlogPost, JobPosting, SiteSettings, TeamMember, CompanyStory, ClientLogo, StrategicPartner, StandardPartner, IncidentItem } from '../context/DataContext';
 import { Link } from 'react-router-dom';
-import { LayoutDashboard, FileText, Briefcase, Plus, Trash2, Shield, ArrowLeft, Settings, Save, AlertTriangle, Users, Building, Handshake, Edit } from 'lucide-react';
+import { LayoutDashboard, FileText, Briefcase, Plus, Trash2, Shield, ArrowLeft, Settings, Save, AlertTriangle, Users, Building, Handshake, Edit, Activity, CheckCircle2, XCircle } from 'lucide-react';
 
 const Admin: React.FC = () => {
   const { 
     posts, jobs, settings, teamMembers, companyStory, clientLogos, strategicPartners, standardPartners,
+    systemStatus, incidents,
     addPost, deletePost, addJob, deleteJob, updateSettings, 
     addTeamMember, deleteTeamMember, addClientLogo, deleteClientLogo, updateCompanyStory,
-    updateStrategicPartner, addStandardPartner, deleteStandardPartner
+    updateStrategicPartner, addStandardPartner, deleteStandardPartner,
+    updateSystemStatus, addIncident, deleteIncident
   } = useData();
   
-  const [activeTab, setActiveTab] = useState<'blog' | 'careers' | 'about' | 'settings' | 'clients' | 'partners'>('blog');
+  const [activeTab, setActiveTab] = useState<'blog' | 'careers' | 'about' | 'settings' | 'clients' | 'partners' | 'status'>('blog');
   
   // Blog Form State
   const [newPost, setNewPost] = useState<Partial<BlogPost>>({
@@ -37,6 +39,14 @@ const Admin: React.FC = () => {
   const [editingStrategic, setEditingStrategic] = useState<StrategicPartner | null>(null);
   const [newStandardPartner, setNewStandardPartner] = useState<Partial<StandardPartner>>({
       name: '', category: 'Infrastructure & Cloud', description: '', logoUrl: ''
+  });
+
+  // Status Incident Form
+  const [newIncident, setNewIncident] = useState<Partial<IncidentItem>>({
+      date: new Date().toLocaleDateString('fr-CA', { day: 'numeric', month: 'long', year: 'numeric' }),
+      title: '',
+      message: '',
+      severity: 'good'
   });
 
   // Settings & Story Form State
@@ -97,6 +107,20 @@ const Admin: React.FC = () => {
       }
   };
 
+  const handleAddIncident = (e: React.FormEvent) => {
+      e.preventDefault();
+      if(newIncident.message) {
+          addIncident(newIncident as Omit<IncidentItem, 'id'>);
+          setNewIncident({
+              date: new Date().toLocaleDateString('fr-CA', { day: 'numeric', month: 'long', year: 'numeric' }),
+              title: '',
+              message: '',
+              severity: 'good'
+          });
+          alert('Incident ajouté à l\'historique !');
+      }
+  };
+
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
     updateSettings(tempSettings);
@@ -150,6 +174,12 @@ const Admin: React.FC = () => {
                 <Handshake className="w-5 h-5" /> Partenaires
             </button>
             <button 
+                onClick={() => setActiveTab('status')}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'status' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+            >
+                <Activity className="w-5 h-5" /> État des Services
+            </button>
+            <button 
                 onClick={() => setActiveTab('settings')}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'settings' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
             >
@@ -173,6 +203,7 @@ const Admin: React.FC = () => {
                  {activeTab === 'about' && 'Gestion À Propos'}
                  {activeTab === 'clients' && 'Gestion des Clients (Barre Accueil)'}
                  {activeTab === 'partners' && 'Gestion des Partenaires (Page Dédiée)'}
+                 {activeTab === 'status' && 'État des Services (Status Page)'}
                  {activeTab === 'settings' && 'Configuration Générale'}
              </h1>
              <div className="text-sm text-slate-500">Connecté en tant que Admin</div>
@@ -293,6 +324,142 @@ const Admin: React.FC = () => {
                          <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors">Publier l'offre</button>
                      </form>
                  </div>
+             </div>
+         )}
+
+         {/* STATUS PAGE MANAGEMENT */}
+         {activeTab === 'status' && (
+             <div className="space-y-12">
+                 
+                 {/* Section A: Services */}
+                 <div className="space-y-6">
+                     <div className="bg-slate-50 border-l-4 border-slate-500 p-4 rounded-r-xl">
+                         <h2 className="text-xl font-bold text-slate-900">1. État des Systèmes</h2>
+                         <p className="text-slate-500 text-sm mt-1">Gérez le statut (Vert/Orange/Rouge) et les notes spécifiques à chaque service.</p>
+                     </div>
+                     
+                     <div className="grid lg:grid-cols-2 gap-6">
+                         {systemStatus.map(status => (
+                             <div key={status.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                                 <div className="flex justify-between items-center mb-4">
+                                     <div className="flex items-center gap-3">
+                                         <div className={`w-3 h-3 rounded-full ${status.status === 'operational' ? 'bg-green-500' : status.status === 'degraded' ? 'bg-orange-500' : 'bg-red-500'}`}></div>
+                                         <h3 className="font-bold text-lg text-slate-900">{status.name}</h3>
+                                     </div>
+                                     <span className="text-xs uppercase bg-slate-100 px-2 py-1 rounded text-slate-500 font-bold">{status.category}</span>
+                                 </div>
+                                 
+                                 <div className="space-y-4">
+                                     <div>
+                                         <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Statut Actuel</label>
+                                         <select 
+                                            className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium"
+                                            value={status.status}
+                                            onChange={(e) => updateSystemStatus(status.id, e.target.value as any, status.note)}
+                                         >
+                                             <option value="operational">🟢 Opérationnel</option>
+                                             <option value="degraded">🟠 Performance Dégradée</option>
+                                             <option value="down">🔴 Panne Majeure</option>
+                                         </select>
+                                     </div>
+                                     <div>
+                                         <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Note publique (Optionnel)</label>
+                                         <input 
+                                            type="text" 
+                                            className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 placeholder:text-slate-300"
+                                            placeholder="Ex: Lenteur détectée, investigation en cours..."
+                                            value={status.note || ''}
+                                            onChange={(e) => updateSystemStatus(status.id, status.status, e.target.value)}
+                                         />
+                                     </div>
+                                 </div>
+                             </div>
+                         ))}
+                     </div>
+                 </div>
+
+                 {/* Section B: Incident History */}
+                 <div className="space-y-6">
+                     <div className="bg-slate-50 border-l-4 border-blue-500 p-4 rounded-r-xl">
+                         <h2 className="text-xl font-bold text-slate-900">2. Historique & Alertes</h2>
+                         <p className="text-slate-500 text-sm mt-1">Ajoutez des incidents passés ou des maintenances planifiées à l'historique.</p>
+                     </div>
+
+                     <div className="grid lg:grid-cols-3 gap-8">
+                         <div className="lg:col-span-2 space-y-4">
+                             {incidents.map(inc => (
+                                 <div key={inc.id} className="bg-white p-4 rounded-xl border border-slate-200 flex justify-between items-start">
+                                     <div>
+                                         <div className="flex items-center gap-2 mb-1">
+                                             <span className={`w-2 h-2 rounded-full ${inc.severity === 'good' ? 'bg-green-500' : inc.severity === 'warning' ? 'bg-orange-500' : 'bg-red-500'}`}></span>
+                                             <span className="text-sm font-bold text-slate-500">{inc.date}</span>
+                                         </div>
+                                         {inc.title && <h4 className="font-bold text-slate-900">{inc.title}</h4>}
+                                         <p className="text-sm text-slate-600">{inc.message}</p>
+                                     </div>
+                                     <button onClick={() => deleteIncident(inc.id)} className="text-red-400 hover:text-red-600 p-2">
+                                         <Trash2 className="w-5 h-5" />
+                                     </button>
+                                 </div>
+                             ))}
+                         </div>
+
+                         <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-200 h-fit">
+                             <h3 className="font-bold text-lg text-slate-900 mb-4 flex items-center gap-2">
+                                 <Plus className="w-5 h-5" /> Ajouter un événement
+                             </h3>
+                             <form onSubmit={handleAddIncident} className="space-y-4">
+                                 <div>
+                                     <label className="block text-xs font-bold text-slate-500 mb-1">Date (Texte libre)</label>
+                                     <input 
+                                        type="text" 
+                                        className="w-full p-2 border border-slate-300 rounded-lg text-sm" 
+                                        value={newIncident.date} 
+                                        onChange={e => setNewIncident({...newIncident, date: e.target.value})}
+                                     />
+                                 </div>
+                                 <div>
+                                     <label className="block text-xs font-bold text-slate-500 mb-1">Type / Titre (Optionnel)</label>
+                                     <input 
+                                        type="text" 
+                                        placeholder="Ex: Maintenance Planifiée"
+                                        className="w-full p-2 border border-slate-300 rounded-lg text-sm" 
+                                        value={newIncident.title} 
+                                        onChange={e => setNewIncident({...newIncident, title: e.target.value})}
+                                     />
+                                 </div>
+                                 <div>
+                                     <label className="block text-xs font-bold text-slate-500 mb-1">Message</label>
+                                     <textarea 
+                                        className="w-full p-2 border border-slate-300 rounded-lg text-sm h-24" 
+                                        value={newIncident.message} 
+                                        onChange={e => setNewIncident({...newIncident, message: e.target.value})}
+                                        required
+                                     ></textarea>
+                                 </div>
+                                 <div>
+                                     <label className="block text-xs font-bold text-slate-500 mb-1">Sévérité (Couleur)</label>
+                                     <div className="flex gap-4">
+                                         <label className="flex items-center gap-2 cursor-pointer">
+                                             <input type="radio" name="severity" value="good" checked={newIncident.severity === 'good'} onChange={() => setNewIncident({...newIncident, severity: 'good'})} />
+                                             <span className="text-sm text-green-600 font-bold">Vert</span>
+                                         </label>
+                                         <label className="flex items-center gap-2 cursor-pointer">
+                                             <input type="radio" name="severity" value="warning" checked={newIncident.severity === 'warning'} onChange={() => setNewIncident({...newIncident, severity: 'warning'})} />
+                                             <span className="text-sm text-orange-500 font-bold">Orange</span>
+                                         </label>
+                                         <label className="flex items-center gap-2 cursor-pointer">
+                                             <input type="radio" name="severity" value="critical" checked={newIncident.severity === 'critical'} onChange={() => setNewIncident({...newIncident, severity: 'critical'})} />
+                                             <span className="text-sm text-red-600 font-bold">Rouge</span>
+                                         </label>
+                                     </div>
+                                 </div>
+                                 <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 rounded-lg hover:bg-blue-700 transition-colors">Ajouter</button>
+                             </form>
+                         </div>
+                     </div>
+                 </div>
+
              </div>
          )}
 

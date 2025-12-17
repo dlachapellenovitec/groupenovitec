@@ -18,6 +18,11 @@ import BlogPost from './pages/BlogPost';
 import Partners from './pages/Partners';
 import Admin from './pages/Admin';
 import AdminLogin from './pages/AdminLogin';
+import Status from './pages/Status';
+import Privacy from './pages/Privacy';
+import Terms from './pages/Terms';
+import SecurityQuiz from './components/SecurityQuiz';
+import AISecurityAssistant from './components/AISecurityAssistant';
 import { MessageCircle, X } from 'lucide-react';
 
 // Scroll to top on route change
@@ -35,12 +40,12 @@ const ChatWidget = () => {
   const [showPrompt, setShowPrompt] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => setShowPrompt(true), 5000); // Show prompt after 5s
+    const timer = setTimeout(() => setShowPrompt(true), 8000); 
     return () => clearTimeout(timer);
   }, []);
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+    <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end">
       {/* Prompt Bubble */}
       {showPrompt && !isOpen && (
         <div className="bg-white p-4 rounded-xl shadow-xl border border-slate-200 mb-4 max-w-xs animate-fade-in-up relative">
@@ -89,8 +94,7 @@ const App: React.FC = () => {
         <ScrollToTop />
         <div className="flex flex-col min-h-screen">
           <Routes>
-            {/* Admin routes need to be outside main layout if we wanted a different layout, 
-                but for simplicity we keep navbar/footer or hide them inside component logic */}
+            {/* Admin routes */}
             <Route path="/admin" element={<Admin />} />
             <Route path="/admin/login" element={<AdminLogin />} />
             
@@ -113,10 +117,15 @@ const App: React.FC = () => {
                     <Route path="/blog/:id" element={<BlogPost />} />
                     <Route path="/contact" element={<Contact />} />
                     <Route path="/support" element={<Support />} />
+                    <Route path="/status" element={<Status />} />
+                    <Route path="/privacy" element={<Privacy />} />
+                    <Route path="/terms" element={<Terms />} />
                   </Routes>
                 </main>
                 <Footer />
                 <ChatWidget />
+                <SecurityQuiz />
+                <AISecurityAssistant />
               </>
             } />
           </Routes>

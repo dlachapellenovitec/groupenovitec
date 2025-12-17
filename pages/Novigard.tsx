@@ -1,12 +1,45 @@
-import React from 'react';
-import { Shield, Lock, Eye, FileCheck, Fingerprint, Database, Siren } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Shield, Lock, Eye, FileCheck, Fingerprint, Database, Siren, Activity, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
+// MOCK DATA FOR LIVE THREAT TICKER
+const threats = [
+    { type: 'Ransomware Bloqué', loc: 'Montréal, QC', ip: '192.168.X.X', time: 'À l\'instant' },
+    { type: 'Login Suspect (Russie)', loc: 'Québec, QC', ip: '45.11.23.X', time: 'Il y a 2 min' },
+    { type: 'Phishing Détecté', loc: 'Laval, QC', ip: 'Mail Server', time: 'Il y a 5 min' },
+    { type: 'Scan de Ports', loc: 'Sherbrooke, QC', ip: '89.22.11.X', time: 'Il y a 12 min' },
+];
+
 const Novigard: React.FC = () => {
+  const [currentThreat, setCurrentThreat] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+        setCurrentThreat((prev) => (prev + 1) % threats.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, []);
+
   return (
     <div className="bg-slate-950 text-white min-h-screen font-sans selection:bg-cyan-500 selection:text-slate-900">
+      {/* Live Threat Banner */}
+      <div className="bg-red-900/20 border-b border-red-500/30 backdrop-blur-md sticky top-0 z-30 overflow-hidden">
+          <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-red-400 text-xs font-bold uppercase tracking-widest animate-pulse">
+                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                  Menaces bloquées en direct
+              </div>
+              <div className="flex items-center gap-4 text-xs font-mono text-slate-300">
+                   <span className="hidden md:inline text-cyan-400 font-bold">{threats[currentThreat].type}</span>
+                   <span className="flex items-center gap-1"><MapPin className="w-3 h-3"/> {threats[currentThreat].loc}</span>
+                   <span className="hidden sm:inline opacity-50">{threats[currentThreat].ip}</span>
+                   <span className="text-white bg-slate-800 px-2 py-0.5 rounded">{threats[currentThreat].time}</span>
+              </div>
+          </div>
+      </div>
+
       {/* Hero */}
-      <div className="relative pt-40 pb-32 overflow-hidden flex items-center justify-center">
+      <div className="relative pt-32 pb-32 overflow-hidden flex items-center justify-center">
         {/* Updated Hero Background - More abstract/tech */}
         <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1563986768494-4dee2763ff3f?auto=format&fit=crop&q=80&w=2000')] bg-cover bg-center opacity-10"></div>
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-slate-950/80 to-slate-950"></div>
@@ -17,7 +50,7 @@ const Novigard: React.FC = () => {
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 flex flex-col items-center text-center">
             <div className="inline-flex items-center gap-2 border border-cyan-500/30 bg-cyan-950/30 px-4 py-2 rounded-full backdrop-blur-md mb-8">
-                <div className="w-2 h-2 bg-cyan-400 rounded-full animate-ping"></div>
+                <Activity className="w-4 h-4 text-cyan-400" />
                 <span className="text-cyan-300 font-mono text-sm tracking-widest uppercase">Cyber Defense Active</span>
             </div>
             
@@ -79,7 +112,7 @@ const Novigard: React.FC = () => {
                             <p><span className="text-blue-400">09:14:23</span> <span className="text-yellow-400">[WARN]</span> 50 failed password attempts for user 'admin'</p>
                             <p><span className="text-blue-400">09:14:25</span> <span className="text-green-400">[INFO]</span> NOVIGARD Agent: IP blocked automatically.</p>
                             <p><span className="text-blue-400">09:14:26</span> <span className="text-green-400">[INFO]</span> Alert sent to SOC team.</p>
-                            <p className="animate-pulse text-cyan-400 mt-4">> System Secure.</p>
+                            <p className="animate-pulse text-cyan-400 mt-4">&gt; System Secure.</p>
                         </div>
                     </div>
                 </div>

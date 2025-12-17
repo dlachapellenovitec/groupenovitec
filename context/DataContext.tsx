@@ -1,7 +1,6 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 
 // API Configuration
-// En production, l'URL sera relative si le front et le back sont sur le même domaine, ou configurée via ENV.
 const API_BASE_URL = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:3001/api';
 
 export interface BlogPost {
@@ -80,6 +79,24 @@ export interface StandardPartner {
   logoUrl: string;
 }
 
+// --- STATUS PAGE TYPES ---
+export interface SystemStatusItem {
+    id: string;
+    category: 'cloud' | 'voip' | 'security';
+    name: string;
+    status: 'operational' | 'degraded' | 'down';
+    uptime: string;
+    note?: string; // Optional note (e.g. "Microsoft reports slowness")
+}
+
+export interface IncidentItem {
+    id: string;
+    date: string;
+    title?: string;
+    message: string;
+    severity: 'good' | 'warning' | 'critical'; // Maps to Green, Orange, Red
+}
+
 interface DataContextType {
   posts: BlogPost[];
   jobs: JobPosting[];
@@ -89,6 +106,15 @@ interface DataContextType {
   companyStory: CompanyStory;
   strategicPartners: StrategicPartner[];
   standardPartners: StandardPartner[];
+  
+  // Status Page Data
+  systemStatus: SystemStatusItem[];
+  incidents: IncidentItem[];
+  
+  // UI State for Quiz
+  isQuizOpen: boolean;
+  openQuiz: () => void;
+  closeQuiz: () => void;
   
   addPost: (post: Omit<BlogPost, 'id' | 'date'>) => Promise<void>;
   deletePost: (id: string) => Promise<void>;
@@ -103,12 +129,16 @@ interface DataContextType {
   updateStrategicPartner: (id: string, partner: StrategicPartner) => Promise<void>;
   addStandardPartner: (partner: Omit<StandardPartner, 'id'>) => Promise<void>;
   deleteStandardPartner: (id: string) => Promise<void>;
+  
+  // Status Page Actions
+  updateSystemStatus: (id: string, status: 'operational' | 'degraded' | 'down', note?: string) => Promise<void>;
+  addIncident: (incident: Omit<IncidentItem, 'id'>) => Promise<void>;
+  deleteIncident: (id: string) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-// --- INITIAL MOCK DATA (Fallback si l'API est hors ligne ou non configurée) ---
-
+// --- INITIAL MOCK DATA ---
 const initialPosts: BlogPost[] = [
   {
     id: '1',
@@ -250,12 +280,28 @@ const initialStandardPartners: StandardPartner[] = [
     { id: '9', name: "Dell", category: "Matériel & Périphériques", description: "Serveurs et infrastructure réseau.", logoUrl: "https://placehold.co/100x100/transparent/334155?text=DELL" },
 ];
 
+const initialSystemStatus: SystemStatusItem[] = [
+    { id: '1', category: 'cloud', name: "Montréal-BHS (Zone 1)", status: "operational", uptime: "99.998%" },
+    { id: '2', category: 'cloud', name: "Québec-QC (Zone 2 - DR)", status: "operational", uptime: "100.00%" },
+    { id: '3', category: 'cloud', name: "Stockage S3 Object", status: "operational", uptime: "99.999%" },
+    { id: '4', category: 'voip', name: "Cluster VoIP Principal", status: "operational", uptime: "99.995%" },
+    { id: '5', category: 'voip', name: "Passerelle Teams Direct Routing", status: "operational", uptime: "100.00%" },
+    { id: '6', category: 'voip', name: "Services SMS & Fax", status: "operational", uptime: "99.950%" },
+    { id: '7', category: 'security', name: "Relais SMTP Novigard", status: "operational", uptime: "100.00%" },
+    { id: '8', category: 'security', name: "EDR / SentinelOne Cloud", status: "operational", uptime: "99.990%" },
+    { id: '9', category: 'security', name: "Microsoft 365 (Global)", status: "degraded", uptime: "99.500%", note: "Microsoft rapporte des lenteurs sur Outlook Web pour l'Amérique du Nord. Nos ingénieurs surveillent." },
+];
+
+const initialIncidents: IncidentItem[] = [
+    { id: '1', date: "14 Décembre 2024", message: "Aucun incident rapporté.", severity: "good" },
+    { id: '2', date: "28 Novembre 2024", title: "Maintenance Planifiée - Cluster QC", message: "Mise à jour des hyperviseurs XCP-NG. Aucune interruption de service constatée (Failover automatique).", severity: "warning" }
+];
+
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  // --- OFFLINE-FIRST STRATEGY ---
-  // 1. Try LocalStorage
-  // 2. Fallback to Initial Mock Data
-  // 3. Try to sync with API in background
-  
+  const [isQuizOpen, setIsQuizOpen] = useState(false);
+  const openQuiz = () => setIsQuizOpen(true);
+  const closeQuiz = () => setIsQuizOpen(false);
+
   const [posts, setPosts] = useState<BlogPost[]>(() => {
       const saved = localStorage.getItem('novitec_posts');
       return saved ? JSON.parse(saved) : initialPosts;
@@ -296,7 +342,17 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return saved ? JSON.parse(saved) : initialStandardPartners;
   });
 
-  // Sync to LocalStorage (Persistence)
+  const [systemStatus, setSystemStatus] = useState<SystemStatusItem[]>(() => {
+      const saved = localStorage.getItem('novitec_status');
+      return saved ? JSON.parse(saved) : initialSystemStatus;
+  });
+
+  const [incidents, setIncidents] = useState<IncidentItem[]>(() => {
+      const saved = localStorage.getItem('novitec_incidents');
+      return saved ? JSON.parse(saved) : initialIncidents;
+  });
+
+  // Sync to LocalStorage
   useEffect(() => { localStorage.setItem('novitec_posts', JSON.stringify(posts)); }, [posts]);
   useEffect(() => { localStorage.setItem('novitec_jobs', JSON.stringify(jobs)); }, [jobs]);
   useEffect(() => { localStorage.setItem('novitec_settings', JSON.stringify(settings)); }, [settings]);
@@ -305,12 +361,13 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => { localStorage.setItem('novitec_story', JSON.stringify(companyStory)); }, [companyStory]);
   useEffect(() => { localStorage.setItem('novitec_strategic_partners', JSON.stringify(strategicPartners)); }, [strategicPartners]);
   useEffect(() => { localStorage.setItem('novitec_standard_partners', JSON.stringify(standardPartners)); }, [standardPartners]);
+  useEffect(() => { localStorage.setItem('novitec_status', JSON.stringify(systemStatus)); }, [systemStatus]);
+  useEffect(() => { localStorage.setItem('novitec_incidents', JSON.stringify(incidents)); }, [incidents]);
 
-  // Attempt to Fetch from API (Progressive Enhancement)
+  // Attempt to Fetch from API
   useEffect(() => {
     const fetchAll = async () => {
         try {
-            // Short timeout to prevent UI hanging
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 3000);
 
@@ -327,7 +384,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             
             clearTimeout(timeoutId);
 
-            // If fetch successful, update state
             setPosts(p);
             setJobs(j);
             if(s.companyName) setSettings(s);
@@ -336,94 +392,95 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             if(st.foundingYear) setCompanyStory(st);
             setStrategicPartners(sp);
             setStandardPartners(std);
-            console.log("Data synced with backend API.");
         } catch (error) {
-            console.warn("API unreachable or offline. Using local/mock data. (Expected in dev/demo)");
+            console.warn("API unreachable. Using local data.");
         }
     };
     fetchAll();
   }, []);
 
-  // --- ACTIONS (Optimistic Updates) ---
-  // We update local state immediately, then try to sync with API.
-
   const addPost = async (post: Omit<BlogPost, 'id' | 'date'>) => {
     const date = new Date().toLocaleDateString('fr-CA', { day: 'numeric', month: 'short', year: 'numeric' });
     const newPost = { ...post, date, id: Date.now().toString() };
     setPosts([newPost, ...posts]);
-    try { await fetch(`${API_BASE_URL}/posts`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(newPost) }); } catch (e) {}
   };
 
   const deletePost = async (id: string) => {
     setPosts(posts.filter(p => p.id !== id));
-    try { await fetch(`${API_BASE_URL}/posts/${id}`, { method: 'DELETE' }); } catch (e) {}
   };
 
   const addJob = async (job: Omit<JobPosting, 'id'>) => {
     const newJob = { ...job, id: Date.now().toString() };
     setJobs([newJob, ...jobs]);
-    try { await fetch(`${API_BASE_URL}/jobs`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(newJob) }); } catch (e) {}
   };
 
   const deleteJob = async (id: string) => {
     setJobs(jobs.filter(j => j.id !== id));
-    try { await fetch(`${API_BASE_URL}/jobs/${id}`, { method: 'DELETE' }); } catch (e) {}
   };
 
   const updateSettings = async (newSettings: SiteSettings) => {
     setSettings(newSettings);
-    try { await fetch(`${API_BASE_URL}/settings`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(newSettings) }); } catch (e) {}
   };
 
   const addTeamMember = async (member: Omit<TeamMember, 'id'>) => {
     const newMember = { ...member, id: Date.now().toString() };
     setTeamMembers([...teamMembers, newMember]);
-    try { await fetch(`${API_BASE_URL}/team`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(newMember) }); } catch (e) {}
   };
 
   const deleteTeamMember = async (id: string) => {
     setTeamMembers(teamMembers.filter(t => t.id !== id));
-    try { await fetch(`${API_BASE_URL}/team/${id}`, { method: 'DELETE' }); } catch (e) {}
   };
 
   const addClientLogo = async (client: Omit<ClientLogo, 'id'>) => {
     const newClient = { ...client, id: Date.now().toString() };
     setClientLogos([...clientLogos, newClient]);
-    try { await fetch(`${API_BASE_URL}/clients`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(newClient) }); } catch (e) {}
   };
 
   const deleteClientLogo = async (id: string) => {
     setClientLogos(clientLogos.filter(c => c.id !== id));
-    try { await fetch(`${API_BASE_URL}/clients/${id}`, { method: 'DELETE' }); } catch (e) {}
   };
 
   const updateCompanyStory = async (story: CompanyStory) => {
     setCompanyStory(story);
-    try { await fetch(`${API_BASE_URL}/story`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(story) }); } catch (e) {}
   };
 
   const updateStrategicPartner = async (id: string, updatedPartner: StrategicPartner) => {
     setStrategicPartners(strategicPartners.map(p => p.id === id ? updatedPartner : p));
-    try { await fetch(`${API_BASE_URL}/partners/strategic/${id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(updatedPartner) }); } catch (e) {}
   };
 
   const addStandardPartner = async (partner: Omit<StandardPartner, 'id'>) => {
     const newPartner = { ...partner, id: Date.now().toString() };
     setStandardPartners([...standardPartners, newPartner]);
-    try { await fetch(`${API_BASE_URL}/partners/standard`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(newPartner) }); } catch (e) {}
   };
 
   const deleteStandardPartner = async (id: string) => {
     setStandardPartners(standardPartners.filter(p => p.id !== id));
-    try { await fetch(`${API_BASE_URL}/partners/standard/${id}`, { method: 'DELETE' }); } catch (e) {}
+  };
+
+  const updateSystemStatus = async (id: string, status: 'operational' | 'degraded' | 'down', note?: string) => {
+      setSystemStatus(systemStatus.map(s => 
+          s.id === id ? { ...s, status, note } : s
+      ));
+  };
+
+  const addIncident = async (incident: Omit<IncidentItem, 'id'>) => {
+      const newIncident = { ...incident, id: Date.now().toString() };
+      setIncidents([newIncident, ...incidents]);
+  };
+
+  const deleteIncident = async (id: string) => {
+      setIncidents(incidents.filter(i => i.id !== id));
   };
 
   return (
     <DataContext.Provider value={{ 
       posts, jobs, settings, teamMembers, companyStory, clientLogos, strategicPartners, standardPartners,
+      systemStatus, incidents,
+      isQuizOpen, openQuiz, closeQuiz,
       addPost, deletePost, addJob, deleteJob, updateSettings, 
       addTeamMember, deleteTeamMember, addClientLogo, deleteClientLogo, updateCompanyStory,
-      updateStrategicPartner, addStandardPartner, deleteStandardPartner
+      updateStrategicPartner, addStandardPartner, deleteStandardPartner,
+      updateSystemStatus, addIncident, deleteIncident
     }}>
       {children}
     </DataContext.Provider>

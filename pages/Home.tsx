@@ -24,7 +24,7 @@ const FAQItem = ({ question, answer }: { question: string, answer: string }) => 
 }
 
 const Home: React.FC = () => {
-  const { clientLogos } = useData();
+  const { clientLogos, openQuiz } = useData();
   const [isLoaded, setIsLoaded] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
@@ -117,10 +117,10 @@ const Home: React.FC = () => {
               className={`flex flex-col sm:flex-row gap-4 pt-4 transition-all duration-1000 ease-out ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
               style={{ transitionDelay: '800ms' }}
             >
-              <Link to="/contact" className="group bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-xl font-bold text-center transition-all shadow-lg hover:shadow-blue-500/50 hover:-translate-y-1 flex items-center justify-center gap-2">
-                Demander un Audit TI
+              <button onClick={openQuiz} className="group bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-xl font-bold text-center transition-all shadow-lg hover:shadow-blue-500/50 hover:-translate-y-1 flex items-center justify-center gap-2">
+                Auditer ma sécurité (Quiz)
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </Link>
+              </button>
               <Link to="/msp" className="group bg-white/5 hover:bg-white/10 text-white border border-white/20 px-8 py-4 rounded-xl font-semibold text-center transition-all backdrop-blur-sm flex items-center justify-center gap-2 hover:border-white/40">
                 Voir nos Forfaits
                 <MousePointerClick className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors"/>

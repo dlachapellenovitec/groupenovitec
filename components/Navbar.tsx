@@ -4,12 +4,12 @@ import {
   Menu, X, Shield, Phone, ChevronDown, 
   Cloud, LayoutGrid, Users, 
   LifeBuoy, FileText, Briefcase, 
-  ArrowRight, Globe, Handshake, Hexagon, AlertCircle 
+  ArrowRight, Globe, Handshake, Hexagon, AlertCircle, PlayCircle 
 } from 'lucide-react';
 import { useData } from '../context/DataContext';
 
 const Navbar: React.FC = () => {
-  const { settings, jobs } = useData();
+  const { settings, jobs, openQuiz } = useData();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
@@ -250,9 +250,17 @@ const Navbar: React.FC = () => {
                  </div>
               </div>
 
-              <Link to="/contact" className={`text-sm font-bold ${textColorClass} transition-colors`}>
-                Contact
-              </Link>
+              {/* NEW: Quiz Trigger Button (Desktop) */}
+               <button 
+                  onClick={openQuiz}
+                  className={`flex items-center gap-2 text-sm font-bold py-2 px-3 rounded-lg border transition-all hover:scale-105
+                    ${(isHome && !scrolled) 
+                        ? 'border-white/30 text-white hover:bg-white/10' 
+                        : 'border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-blue-600'}`}
+              >
+                 <PlayCircle className="w-4 h-4" />
+                 Test de Sécurité
+              </button>
 
               {/* CTA Button */}
               <Link 
@@ -323,10 +331,21 @@ const Navbar: React.FC = () => {
                   ))}
               </div>
 
+              {/* Mobile Quiz Button */}
+              <button
+                onClick={() => {
+                    openQuiz();
+                    setIsMobileMenuOpen(false);
+                }}
+                className="block w-full text-center bg-cyan-50 text-cyan-700 px-4 py-3 rounded-xl font-bold border border-cyan-100"
+              >
+                Lancer le Test de Sécurité
+              </button>
+
                <Link
                 to="/contact"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="block w-full text-center mt-6 bg-blue-600 text-white px-4 py-3 rounded-xl font-bold shadow-lg"
+                className="block w-full text-center mt-3 bg-blue-600 text-white px-4 py-3 rounded-xl font-bold shadow-lg"
               >
                 Demander un Audit Gratuit
               </Link>
