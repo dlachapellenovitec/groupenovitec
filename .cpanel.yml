@@ -1,7 +1,8 @@
-
 ---
 deployment:
   tasks:
     - export DEPLOYPATH=/home/groupenovitec/public_html/
-    - /bin/cp -R dist/* $DEPLOYPATH
-    - /bin/cp .htaccess $DEPLOYPATH
+    - /bin/mkdir -p $DEPLOYPATH
+    - /bin/cp -rf dist/* $DEPLOYPATH/
+    - /bin/cp .htaccess $DEPLOYPATH/
+    - /bin/echo "Déploiement terminé avec succès" > $DEPLOYPATH/deploy_status.txt
