@@ -6,16 +6,16 @@ const bodyParser = require('body-parser');
 
 const app = express();
 // Sur cPanel, le port est souvent passé via l'environnement, sinon 3001
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(bodyParser.json());
 
 const dbConfig = {
   host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root', 
-  password: process.env.DB_PASSWORD || '', 
-  database: process.env.DB_NAME || 'novitec_db',
+  user: process.env.DB_USER || 'groupenovitec_adminmspuser', 
+  password: process.env.DB_PASSWORD || 'vGRi6ioateHKMGQVZTbctL', 
+  database: process.env.DB_NAME || 'groupenovitec_mspwebsite',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
