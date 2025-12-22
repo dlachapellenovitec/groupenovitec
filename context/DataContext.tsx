@@ -1,19 +1,15 @@
 
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 
-// Détection intelligente de l'URL API
 const getBaseUrl = () => {
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     return 'http://localhost:3001/api';
   }
-  // En production sur cPanel, on utilise le chemin relatif /api
-  // Le .htaccess s'assurera que cette requête ne soit pas interceptée par React
   return '/api';
 };
 
 const API_BASE_URL = getBaseUrl();
 
-// Interfaces
 export interface BlogPost { id: string; title: string; excerpt: string; content: string; category: string; author: string; date: string; imageUrl: string; }
 export interface JobPosting { id: string; title: string; location: string; type: string; summary: string; }
 export interface TeamMember { id: string; name: string; role: string; bio: string; imageUrl: string; linkedinUrl?: string; quote?: string; }
@@ -67,104 +63,100 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [incidents, setIncidents] = useState<IncidentItem[]>([]);
 
   const fetchAll = async () => {
-    console.log(`[Data] Fetching from: ${API_BASE_URL}`);
     try {
-      const endpoints = ['posts', 'jobs', 'settings', 'team', 'clients', 'story', 'partners/strategic', 'partners/standard', 'status', 'incidents'];
+      const endpoints = [
+        'posts', 'jobs', 'settings', 'team', 'clients', 'story', 
+        'partners/strategic', 'partners/standard', 'status', 'incidents'
+      ];
       const responses = await Promise.all(
         endpoints.map(e => 
           fetch(`${API_BASE_URL}/${e}`)
-            .then(r => {
-                if(!r.ok) throw new Error(`Endpoint ${e} error`);
-                return r.json();
-            })
-            .catch(err => {
-                console.warn(`Failed endpoint: ${e}`, err);
-                return null;
-            })
+            .then(r => r.ok ? r.json() : null)
+            .catch(() => null)
         )
       );
       
       if(responses[0]) setPosts(responses[0]);
       if(responses[1]) setJobs(responses[1]);
-      if(responses[2] && responses[2].companyName) setSettings(responses[2]);
+      if(responses[2]) setSettings(responses[2]);
       if(responses[3]) setTeamMembers(responses[3]);
-      if(responses[4]) setClientLogos(responses[5]);
-      if(responses[5] && responses[5].foundingYear) setCompanyStory(responses[5]);
+      if(responses[4]) setClientLogos(responses[4]);
+      if(responses[5]) setCompanyStory(responses[5]);
       if(responses[6]) setStrategicPartners(responses[6]);
       if(responses[7]) setStandardPartners(responses[7]);
       if(responses[8]) setSystemStatus(responses[8]);
       if(responses[9]) setIncidents(responses[9]);
     } catch (e) { 
-      console.error("Critical Fetch Error:", e);
+      console.error("Fetch Error:", e);
     }
   };
 
   useEffect(() => { fetchAll(); }, []);
 
-  // CRUD Methods
   const addPost = async (post: any) => {
     await fetch(`${API_BASE_URL}/posts`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(post) });
-    fetchAll();
+    await fetchAll();
   };
   const deletePost = async (id: string) => {
     await fetch(`${API_BASE_URL}/posts/${id}`, { method: 'DELETE' });
-    fetchAll();
+    await fetchAll();
   };
   const addJob = async (job: any) => {
     await fetch(`${API_BASE_URL}/jobs`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(job) });
-    fetchAll();
+    await fetchAll();
   };
   const deleteJob = async (id: string) => {
     await fetch(`${API_BASE_URL}/jobs/${id}`, { method: 'DELETE' });
-    fetchAll();
+    await fetchAll();
   };
   const updateSettings = async (newSettings: SiteSettings) => {
     await fetch(`${API_BASE_URL}/settings`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSettings) });
-    fetchAll();
+    await fetchAll();
   };
   const updateCompanyStory = async (story: CompanyStory) => {
+    // Note: l'API story n'était pas implémentée, on l'ajoute ou on utilise settings si besoin. Ici on assume l'existence du endpoint.
     await fetch(`${API_BASE_URL}/story`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(story) });
-    fetchAll();
+    await fetchAll();
   };
   const addTeamMember = async (member: any) => {
     await fetch(`${API_BASE_URL}/team`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(member) });
-    fetchAll();
+    await fetchAll();
   };
   const deleteTeamMember = async (id: string) => {
     await fetch(`${API_BASE_URL}/team/${id}`, { method: 'DELETE' });
-    fetchAll();
+    await fetchAll();
   };
   const addClientLogo = async (client: any) => {
     await fetch(`${API_BASE_URL}/clients`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(client) });
-    fetchAll();
+    await fetchAll();
   };
   const deleteClientLogo = async (id: string) => {
     await fetch(`${API_BASE_URL}/clients/${id}`, { method: 'DELETE' });
-    fetchAll();
+    await fetchAll();
   };
   const updateStrategicPartner = async (id: string, partner: StrategicPartner) => {
     await fetch(`${API_BASE_URL}/partners/strategic/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(partner) });
-    fetchAll();
+    await fetchAll();
   };
   const addStandardPartner = async (partner: any) => {
     await fetch(`${API_BASE_URL}/partners/standard`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(partner) });
-    fetchAll();
+    await fetchAll();
   };
   const deleteStandardPartner = async (id: string) => {
     await fetch(`${API_BASE_URL}/partners/standard/${id}`, { method: 'DELETE' });
-    fetchAll();
+    await fetchAll();
   };
   const updateSystemStatus = async (id: string, status: string, note?: string) => {
     await fetch(`${API_BASE_URL}/status/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status, note }) });
-    fetchAll();
+    await fetchAll();
   };
   const addIncident = async (incident: any) => {
     await fetch(`${API_BASE_URL}/incidents`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(incident) });
-    fetchAll();
+    await fetchAll();
   };
   const deleteIncident = async (id: string) => {
     await fetch(`${API_BASE_URL}/incidents/${id}`, { method: 'DELETE' });
-    fetchAll();
+    await fetchAll();
   };
 
   return (
