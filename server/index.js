@@ -137,7 +137,7 @@ initDb();
 
 // --- API ROUTES ---
 
-// Health Check pour l'interface Admin
+// Health Check
 app.get('/api/health', async (req, res) => {
   try {
     const client = await pool.connect();
@@ -147,6 +147,29 @@ app.get('/api/health', async (req, res) => {
   } catch (err) {
     res.status(500).json({ status: 'error', database: 'disconnected', message: err.message });
   }
+});
+
+// TEST DE CONNEXION (Reçoit une URL de DB et tente de s'y connecter)
+app.post('/api/test-db-connection', async (req, res) => {
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ error: 'URL manquante' });
+
+    const testPool = new Pool({
+        connectionString: url,
+        ssl: { rejectUnauthorized: false },
+        connectionTimeoutMillis: 5000
+    });
+
+    try {
+        const client = await testPool.connect();
+        await client.query('SELECT 1');
+        client.release();
+        await testPool.end();
+        res.json({ success: true, message: 'Connexion réussie !' });
+    } catch (err) {
+        await testPool.end();
+        res.status(500).json({ success: false, error: err.message });
+    }
 });
 
 app.get('/api/settings', async (req, res) => {

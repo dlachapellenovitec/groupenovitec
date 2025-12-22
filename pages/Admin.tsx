@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useData, BlogPost, JobPosting, SiteSettings, TeamMember, CompanyStory, ClientLogo, StrategicPartner, StandardPartner, IncidentItem } from '../context/DataContext';
 import { Link } from 'react-router-dom';
-import { LayoutDashboard, FileText, Briefcase, Plus, Trash2, Shield, ArrowLeft, Settings, Save, AlertTriangle, Users, Building, Handshake, Edit, Activity, CheckCircle2, XCircle, Database } from 'lucide-react';
+import { LayoutDashboard, FileText, Briefcase, Plus, Trash2, Shield, ArrowLeft, Settings, Save, AlertTriangle, Users, Building, Handshake, Edit, Activity, CheckCircle2, XCircle, Database, Server, Key, Copy, Check } from 'lucide-react';
 
 const Admin: React.FC = () => {
   const { 
@@ -14,8 +14,20 @@ const Admin: React.FC = () => {
     updateSystemStatus, addIncident, deleteIncident
   } = useData();
   
-  const [activeTab, setActiveTab] = useState<'blog' | 'careers' | 'about' | 'settings' | 'clients' | 'partners' | 'status'>('blog');
+  const [activeTab, setActiveTab] = useState<'blog' | 'careers' | 'about' | 'settings' | 'clients' | 'partners' | 'status' | 'system'>('blog');
   const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'error'>('checking');
+
+  // Database Tab States
+  const [dbConfig, setDbConfig] = useState({
+      user: 'votre_utilisateur',
+      pass: '••••••••',
+      host: 'localhost',
+      port: '5432',
+      name: 'novitec_db'
+  });
+  const [testUrl, setTestUrl] = useState('');
+  const [testResult, setTestResult] = useState<{status: 'idle' | 'loading' | 'success' | 'error', msg: string}>({status: 'idle', msg: ''});
+  const [copied, setCopied] = useState(false);
 
   // Vérifier la connexion à la base de données
   const checkDbHealth = async () => {
@@ -34,6 +46,38 @@ const Admin: React.FC = () => {
     const interval = setInterval(checkDbHealth, 30000); // Re-vérifier toutes les 30s
     return () => clearInterval(interval);
   }, []);
+
+  const handleTestConnection = async (e: React.FormEvent) => {
+      e.preventDefault();
+      setTestResult({status: 'loading', msg: 'Test en cours...'});
+      try {
+          const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
+          const res = await fetch(`${baseUrl}/api/test-db-connection`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url: testUrl })
+          });
+          const data = await res.json();
+          if (data.success) {
+              setTestResult({status: 'success', msg: 'Connexion réussie !'});
+          } else {
+              setTestResult({status: 'error', msg: data.error || 'Échec de la connexion'});
+          }
+      } catch (err: any) {
+          setTestResult({status: 'error', msg: err.message});
+      }
+  };
+
+  const generateConnectionString = () => {
+      return `postgres://${dbConfig.user}:${dbConfig.pass}@${dbConfig.host}:${dbConfig.port}/${dbConfig.name}`;
+  };
+
+  const copyToClipboard = () => {
+      const text = `DATABASE_URL=${generateConnectionString()}`;
+      navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+  };
   
   // Blog Form State
   const [newPost, setNewPost] = useState<Partial<BlogPost>>({
@@ -162,48 +206,30 @@ const Admin: React.FC = () => {
            <span className="font-bold text-lg tracking-tight">NOVITEC ADMIN</span>
         </div>
         
-        <nav className="flex-grow p-4 space-y-2">
-            <button 
-                onClick={() => setActiveTab('blog')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'blog' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
-            >
+        <nav className="flex-grow p-4 space-y-2 overflow-y-auto">
+            <button onClick={() => setActiveTab('blog')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'blog' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
                 <FileText className="w-5 h-5" /> Blog
             </button>
-            <button 
-                onClick={() => setActiveTab('careers')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'careers' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
-            >
+            <button onClick={() => setActiveTab('careers')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'careers' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
                 <Briefcase className="w-5 h-5" /> Carrières
             </button>
-            <button 
-                onClick={() => setActiveTab('about')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'about' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
-            >
+            <button onClick={() => setActiveTab('about')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'about' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
                 <Users className="w-5 h-5" /> Équipe & Histoire
             </button>
-            <button 
-                onClick={() => setActiveTab('clients')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'clients' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
-            >
+            <button onClick={() => setActiveTab('clients')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'clients' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
                 <Building className="w-5 h-5" /> Clients / Trust Bar
             </button>
-             <button 
-                onClick={() => setActiveTab('partners')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'partners' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
-            >
+             <button onClick={() => setActiveTab('partners')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'partners' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
                 <Handshake className="w-5 h-5" /> Partenaires
             </button>
-            <button 
-                onClick={() => setActiveTab('status')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'status' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
-            >
+            <button onClick={() => setActiveTab('status')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'status' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
                 <Activity className="w-5 h-5" /> État des Services
             </button>
-            <button 
-                onClick={() => setActiveTab('settings')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'settings' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
-            >
-                <Settings className="w-5 h-5" /> Configuration
+            <button onClick={() => setActiveTab('settings')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'settings' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+                <Settings className="w-5 h-5" /> Configuration Site
+            </button>
+            <button onClick={() => setActiveTab('system')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'system' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+                <Server className="w-5 h-5" /> Système & DB
             </button>
         </nav>
 
@@ -222,10 +248,11 @@ const Admin: React.FC = () => {
                     {activeTab === 'blog' && 'Gestion du Blog'}
                     {activeTab === 'careers' && 'Gestion des Carrières'}
                     {activeTab === 'about' && 'Gestion À Propos'}
-                    {activeTab === 'clients' && 'Gestion des Clients (Barre Accueil)'}
-                    {activeTab === 'partners' && 'Gestion des Partenaires (Page Dédiée)'}
-                    {activeTab === 'status' && 'État des Services (Status Page)'}
-                    {activeTab === 'settings' && 'Configuration Générale'}
+                    {activeTab === 'clients' && 'Gestion des Clients'}
+                    {activeTab === 'partners' && 'Gestion des Partenaires'}
+                    {activeTab === 'status' && 'État des Services'}
+                    {activeTab === 'settings' && 'Configuration du Site'}
+                    {activeTab === 'system' && 'Configuration Système (Base de données)'}
                 </h1>
                 <div className="text-sm text-slate-500 mt-1">Connecté en tant que Admin</div>
              </div>
@@ -243,14 +270,127 @@ const Admin: React.FC = () => {
                      dbStatus === 'error' ? 'bg-red-500' : 'bg-slate-400'
                    }`}></span>
                 </div>
-                <button 
-                  onClick={checkDbHealth}
-                  className="text-[10px] text-slate-400 hover:text-blue-600 underline"
-                >
-                  Actualiser l'état
-                </button>
              </div>
          </header>
+
+         {/* SYSTEM & DATABASE SECTION */}
+         {activeTab === 'system' && (
+             <div className="space-y-8 max-w-5xl">
+                 <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="bg-blue-100 p-2 rounded-xl text-blue-600">
+                            <Key className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-bold text-slate-900">Configurateur DATABASE_URL</h2>
+                            <p className="text-sm text-slate-500">Générez facilement votre chaîne de connexion PostgreSQL.</p>
+                        </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-6">
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Utilisateur DB</label>
+                                <input type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl" value={dbConfig.user} onChange={e => setDbConfig({...dbConfig, user: e.target.value})} />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Mot de passe</label>
+                                <input type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl" value={dbConfig.pass} onChange={e => setDbConfig({...dbConfig, pass: e.target.value})} />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Hôte (Host)</label>
+                                <input type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl" value={dbConfig.host} onChange={e => setDbConfig({...dbConfig, host: e.target.value})} />
+                            </div>
+                        </div>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Nom de la base (DB Name)</label>
+                                <input type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl" value={dbConfig.name} onChange={e => setDbConfig({...dbConfig, name: e.target.value})} />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Port</label>
+                                <input type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl" value={dbConfig.port} onChange={e => setDbConfig({...dbConfig, port: e.target.value})} />
+                            </div>
+                            <div className="h-full flex items-end">
+                                <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-sm text-blue-700 w-full italic">
+                                    "Utilisez ces champs pour construire la ligne DATABASE_URL ci-dessous."
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mt-8 pt-8 border-t border-slate-100">
+                        <label className="block text-sm font-bold text-slate-700 mb-2">Résultat DATABASE_URL (À copier dans votre .env)</label>
+                        <div className="relative group">
+                            <input 
+                                readOnly 
+                                type="text" 
+                                className="w-full p-4 bg-slate-900 text-cyan-400 font-mono text-sm rounded-xl border border-slate-800 pr-12 shadow-inner" 
+                                value={generateConnectionString()} 
+                            />
+                            <button 
+                                onClick={copyToClipboard}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors"
+                                title="Copier la valeur"
+                            >
+                                {copied ? <Check className="w-5 h-5 text-green-400" /> : <Copy className="w-5 h-5" />}
+                            </button>
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-2">Format standard : postgres://[user]:[password]@[host]:[port]/[database]</p>
+                    </div>
+                 </div>
+
+                 <div className="bg-slate-900 text-white p-8 rounded-3xl shadow-xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600 rounded-full mix-blend-overlay filter blur-3xl opacity-20 -mr-20 -mt-20"></div>
+                    
+                    <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+                        <Activity className="w-5 h-5 text-blue-400" /> Testeur de connexion en direct
+                    </h2>
+                    
+                    <form onSubmit={handleTestConnection} className="space-y-4 relative z-10">
+                        <p className="text-sm text-slate-400">Collez une URL complète ci-dessous pour tester si le serveur peut s'y connecter avant de l'appliquer.</p>
+                        <div className="flex gap-4">
+                            <input 
+                                type="text" 
+                                className="flex-grow p-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-mono text-blue-300 placeholder:text-slate-600" 
+                                placeholder="postgres://user:pass@host:5432/db"
+                                value={testUrl}
+                                onChange={e => setTestUrl(e.target.value)}
+                                required
+                            />
+                            <button 
+                                type="submit" 
+                                disabled={testResult.status === 'loading'}
+                                className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 whitespace-nowrap"
+                            >
+                                {testResult.status === 'loading' ? 'Test...' : 'Tester maintenant'}
+                            </button>
+                        </div>
+
+                        {testResult.status !== 'idle' && (
+                            <div className={`p-4 rounded-xl border flex items-start gap-3 animate-fade-in-up ${
+                                testResult.status === 'success' ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-red-500/10 border-red-500/30 text-red-400'
+                            }`}>
+                                {testResult.status === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <XCircle className="w-5 h-5 shrink-0" />}
+                                <div className="text-sm font-medium">
+                                    <p className="font-bold">{testResult.status === 'success' ? 'Succès !' : 'Erreur :'}</p>
+                                    <p className="opacity-80">{testResult.msg}</p>
+                                </div>
+                            </div>
+                        )}
+                    </form>
+
+                    <div className="mt-8 pt-6 border-t border-slate-800 text-xs text-slate-500 leading-relaxed">
+                        <p className="font-bold text-slate-400 mb-1 uppercase tracking-wider">Note d'installation :</p>
+                        <ul className="list-disc pl-4 space-y-1">
+                            <li>Pour appliquer ces changements localement : Créez un fichier <strong>server/.env</strong></li>
+                            <li>Sur votre hébergeur (cPanel / Render) : Allez dans la section <strong>Environment Variables</strong> et ajoutez <strong>DATABASE_URL</strong>.</li>
+                            <li>Le serveur redémarrera automatiquement et créera les tables lors de la première connexion réussie.</li>
+                        </ul>
+                    </div>
+                 </div>
+             </div>
+         )}
 
          {/* BLOG SECTION */}
          {activeTab === 'blog' && (
@@ -258,20 +398,24 @@ const Admin: React.FC = () => {
                  {/* List */}
                  <div className="lg:col-span-2 space-y-4">
                      <h2 className="font-bold text-lg text-slate-700 mb-4">Articles existants</h2>
-                     {posts.map(post => (
-                         <div key={post.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center">
-                             <div className="flex items-center gap-4">
-                                 <img src={post.imageUrl} className="w-12 h-12 rounded-lg object-cover bg-slate-200" alt="thumb"/>
-                                 <div>
-                                     <h3 className="font-bold text-slate-900">{post.title}</h3>
-                                     <span className="text-xs text-slate-500">{post.category} • {post.date}</span>
-                                 </div>
-                             </div>
-                             <button onClick={() => deletePost(post.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Supprimer">
-                                 <Trash2 className="w-5 h-5" />
-                             </button>
-                         </div>
-                     ))}
+                     {posts.length === 0 ? (
+                         <div className="bg-white p-12 text-center rounded-2xl border border-dashed border-slate-300 text-slate-400">Aucun article trouvé. Vérifiez votre base de données.</div>
+                     ) : (
+                        posts.map(post => (
+                            <div key={post.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center">
+                                <div className="flex items-center gap-4">
+                                    <img src={post.imageUrl} className="w-12 h-12 rounded-lg object-cover bg-slate-200" alt="thumb"/>
+                                    <div>
+                                        <h3 className="font-bold text-slate-900">{post.title}</h3>
+                                        <span className="text-xs text-slate-500">{post.category} • {post.date}</span>
+                                    </div>
+                                </div>
+                                <button onClick={() => deletePost(post.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Supprimer">
+                                    <Trash2 className="w-5 h-5" />
+                                </button>
+                            </div>
+                        ))
+                     )}
                  </div>
 
                  {/* Add Form */}
