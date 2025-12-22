@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useData, BlogPost, JobPosting, SiteSettings, TeamMember, CompanyStory, ClientLogo, StrategicPartner, StandardPartner, IncidentItem } from '../context/DataContext';
 import { Link } from 'react-router-dom';
-import { LayoutDashboard, FileText, Briefcase, Plus, Trash2, Shield, ArrowLeft, Settings, Save, AlertTriangle, Users, Building, Handshake, Edit, Activity, CheckCircle2, XCircle } from 'lucide-react';
+import { LayoutDashboard, FileText, Briefcase, Plus, Trash2, Shield, ArrowLeft, Settings, Save, AlertTriangle, Users, Building, Handshake, Edit, Activity, CheckCircle2, XCircle, Database } from 'lucide-react';
 
 const Admin: React.FC = () => {
   const { 
@@ -14,6 +15,25 @@ const Admin: React.FC = () => {
   } = useData();
   
   const [activeTab, setActiveTab] = useState<'blog' | 'careers' | 'about' | 'settings' | 'clients' | 'partners' | 'status'>('blog');
+  const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'error'>('checking');
+
+  // Vérifier la connexion à la base de données
+  const checkDbHealth = async () => {
+    try {
+      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
+      const res = await fetch(`${baseUrl}/api/health`);
+      if (res.ok) setDbStatus('connected');
+      else setDbStatus('error');
+    } catch {
+      setDbStatus('error');
+    }
+  };
+
+  useEffect(() => {
+    checkDbHealth();
+    const interval = setInterval(checkDbHealth, 30000); // Re-vérifier toutes les 30s
+    return () => clearInterval(interval);
+  }, []);
   
   // Blog Form State
   const [newPost, setNewPost] = useState<Partial<BlogPost>>({
@@ -196,17 +216,40 @@ const Admin: React.FC = () => {
 
       {/* Main Content */}
       <div className="flex-grow overflow-y-auto p-10">
-         <header className="mb-10 flex justify-between items-center">
-             <h1 className="text-3xl font-bold text-slate-900">
-                 {activeTab === 'blog' && 'Gestion du Blog'}
-                 {activeTab === 'careers' && 'Gestion des Carrières'}
-                 {activeTab === 'about' && 'Gestion À Propos'}
-                 {activeTab === 'clients' && 'Gestion des Clients (Barre Accueil)'}
-                 {activeTab === 'partners' && 'Gestion des Partenaires (Page Dédiée)'}
-                 {activeTab === 'status' && 'État des Services (Status Page)'}
-                 {activeTab === 'settings' && 'Configuration Générale'}
-             </h1>
-             <div className="text-sm text-slate-500">Connecté en tant que Admin</div>
+         <header className="mb-10 flex justify-between items-start">
+             <div>
+                <h1 className="text-3xl font-bold text-slate-900">
+                    {activeTab === 'blog' && 'Gestion du Blog'}
+                    {activeTab === 'careers' && 'Gestion des Carrières'}
+                    {activeTab === 'about' && 'Gestion À Propos'}
+                    {activeTab === 'clients' && 'Gestion des Clients (Barre Accueil)'}
+                    {activeTab === 'partners' && 'Gestion des Partenaires (Page Dédiée)'}
+                    {activeTab === 'status' && 'État des Services (Status Page)'}
+                    {activeTab === 'settings' && 'Configuration Générale'}
+                </h1>
+                <div className="text-sm text-slate-500 mt-1">Connecté en tant que Admin</div>
+             </div>
+
+             <div className="flex flex-col items-end gap-2">
+                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold shadow-sm border ${
+                  dbStatus === 'connected' ? 'bg-green-50 text-green-700 border-green-200' : 
+                  dbStatus === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-slate-50 text-slate-500 border-slate-200'
+                }`}>
+                   <Database className={`w-3.5 h-3.5 ${dbStatus === 'checking' ? 'animate-spin' : ''}`} />
+                   {dbStatus === 'connected' ? 'Base de données active' : 
+                    dbStatus === 'error' ? 'Erreur de connexion' : 'Vérification...'}
+                   <span className={`w-2 h-2 rounded-full ${
+                     dbStatus === 'connected' ? 'bg-green-500 animate-pulse' : 
+                     dbStatus === 'error' ? 'bg-red-500' : 'bg-slate-400'
+                   }`}></span>
+                </div>
+                <button 
+                  onClick={checkDbHealth}
+                  className="text-[10px] text-slate-400 hover:text-blue-600 underline"
+                >
+                  Actualiser l'état
+                </button>
+             </div>
          </header>
 
          {/* BLOG SECTION */}

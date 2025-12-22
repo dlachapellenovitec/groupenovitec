@@ -1,5 +1,5 @@
 
-require('dotenv').config(); // Charge les variables du fichier .env
+require('dotenv').config();
 const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
@@ -8,18 +8,12 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-/**
- * CONFIGURATION POSTGRESQL
- * Le pool utilise prioritairement DATABASE_URL (ex: postgres://user:pass@host:5432/db)
- */
 const poolConfig = process.env.DATABASE_URL 
   ? { 
       connectionString: process.env.DATABASE_URL,
-      // SSL est souvent requis par les hébergeurs Cloud (Render, Heroku, etc.)
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
     }
   : {
@@ -32,13 +26,12 @@ const poolConfig = process.env.DATABASE_URL
 
 const pool = new Pool(poolConfig);
 
-// Initialisation de la base de données (Création automatique des tables)
 const initDb = async () => {
+  console.log('⏳ Tentative de connexion à la base de données...');
   try {
     const client = await pool.connect();
     console.log('✅ Connecté à PostgreSQL avec succès');
 
-    // Création des tables si elles n'existent pas
     await client.query(`
       CREATE TABLE IF NOT EXISTS site_settings (
         id SERIAL PRIMARY KEY,
@@ -126,30 +119,17 @@ const initDb = async () => {
       );
     `);
 
-    // Insérer des réglages par défaut s'il n'y en a pas
+    console.log('📦 Structure de la base de données vérifiée');
+
     const settingsCheck = await client.query('SELECT id FROM site_settings WHERE id = 1');
     if (settingsCheck.rows.length === 0) {
       await client.query('INSERT INTO site_settings (id) VALUES (1)');
-      console.log('ℹ️ Réglages par défaut créés');
-    }
-
-    // Peupler le statut initial si vide
-    const statusCheck = await client.query('SELECT id FROM system_status LIMIT 1');
-    if (statusCheck.rows.length === 0) {
-      const initialStatus = [
-        ['cloud', 'Cloud Privé (BHS-1)', 'operational', '99.99%'],
-        ['cloud', 'Stockage S3 Object', 'operational', '100%'],
-        ['voip', 'Serveur UC365 Cluster A', 'operational', '99.95%'],
-        ['security', 'Agent Novigard EDR', 'operational', '100%']
-      ];
-      for (const s of initialStatus) {
-        await client.query('INSERT INTO system_status (category, name, status, uptime) VALUES ($1, $2, $3, $4)', s);
-      }
+      console.log('ℹ️ Réglages par défaut initialisés');
     }
 
     client.release();
   } catch (err) {
-    console.error('❌ ERREUR DE CONNEXION POSTGRESQL :', err.message);
+    console.error('❌ ERREUR CRITIQUE BASE DE DONNÉES :', err.message);
   }
 };
 
@@ -157,7 +137,18 @@ initDb();
 
 // --- API ROUTES ---
 
-// Settings
+// Health Check pour l'interface Admin
+app.get('/api/health', async (req, res) => {
+  try {
+    const client = await pool.connect();
+    await client.query('SELECT 1');
+    client.release();
+    res.json({ status: 'ok', database: 'connected', timestamp: new Date() });
+  } catch (err) {
+    res.status(500).json({ status: 'error', database: 'disconnected', message: err.message });
+  }
+});
+
 app.get('/api/settings', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM site_settings WHERE id = 1');
@@ -187,7 +178,6 @@ app.put('/api/settings', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Blog
 app.get('/api/posts', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM blog_posts ORDER BY created_at DESC');
@@ -218,7 +208,6 @@ app.delete('/api/posts/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Jobs
 app.get('/api/jobs', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM job_postings ORDER BY created_at DESC');
@@ -241,7 +230,6 @@ app.delete('/api/jobs/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Team
 app.get('/api/team', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM team_members ORDER BY id ASC');
@@ -264,7 +252,6 @@ app.delete('/api/team/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Status
 app.get('/api/status', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM system_status ORDER BY category, name ASC');
@@ -280,7 +267,6 @@ app.put('/api/status/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Partners
 app.get('/api/partners/strategic', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM strategic_partners ORDER BY id ASC');
@@ -321,7 +307,6 @@ app.delete('/api/partners/standard/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Clients (Logos Trust Bar)
 app.get('/api/clients', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM client_logos ORDER BY id ASC');
@@ -344,7 +329,6 @@ app.delete('/api/clients/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Incidents
 app.get('/api/incidents', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM incidents ORDER BY created_at DESC LIMIT 10');
@@ -367,7 +351,6 @@ app.delete('/api/incidents/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Servir le Frontend
 app.use(express.static(path.join(__dirname, '../dist')));
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../dist', 'index.html'));
