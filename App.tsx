@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { HashRouter as Router, Routes, Route, useLocation, Link } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, useLocation, Link, Navigate } from 'react-router-dom';
 import { DataProvider } from './context/DataContext';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -24,6 +24,48 @@ import Terms from './pages/Terms';
 import SecurityQuiz from './components/SecurityQuiz';
 import AISecurityAssistant from './components/AISecurityAssistant';
 import { MessageCircle, X } from 'lucide-react';
+
+// Protected Route Component
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+  useEffect(() => {
+    const verifyToken = async () => {
+      const token = localStorage.getItem('auth_token');
+
+      if (!token) {
+        setIsAuthenticated(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/verify`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        setIsAuthenticated(response.ok);
+      } catch (error) {
+        console.error('Token verification failed:', error);
+        setIsAuthenticated(false);
+      }
+    };
+
+    verifyToken();
+  }, []);
+
+  if (isAuthenticated === null) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
+  return isAuthenticated ? <>{children}</> : <Navigate to="/admin/login" replace />;
+};
 
 // Scroll to top on route change
 const ScrollToTop = () => {
@@ -95,7 +137,11 @@ const App: React.FC = () => {
         <div className="flex flex-col min-h-screen">
           <Routes>
             {/* Admin routes */}
-            <Route path="/admin" element={<Admin />} />
+            <Route path="/admin" element={
+              <ProtectedRoute>
+                <Admin />
+              </ProtectedRoute>
+            } />
             <Route path="/admin/login" element={<AdminLogin />} />
             
             {/* Public Routes */}

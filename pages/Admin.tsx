@@ -14,8 +14,18 @@ const Admin: React.FC = () => {
     updateSystemStatus, addIncident, deleteIncident
   } = useData();
   
-  const [activeTab, setActiveTab] = useState<'blog' | 'careers' | 'about' | 'settings' | 'clients' | 'partners' | 'status' | 'system'>('blog');
+  const [activeTab, setActiveTab] = useState<'blog' | 'careers' | 'about' | 'settings' | 'clients' | 'partners' | 'status' | 'system' | 'security'>('blog');
   const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'error'>('checking');
+
+  // Security/Password Change States
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   // Database Tab States
   const [dbConfig, setDbConfig] = useState({
@@ -185,6 +195,57 @@ const Admin: React.FC = () => {
       }
   };
 
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess(false);
+
+    // Validation
+    if (passwordForm.newPassword.length < 6) {
+      setPasswordError('Le nouveau mot de passe doit contenir au moins 6 caractères');
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError('Les mots de passe ne correspondent pas');
+      return;
+    }
+
+    setPasswordLoading(true);
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
+
+      const response = await fetch(`${baseUrl}/api/auth/change-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setPasswordSuccess(true);
+        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        setTimeout(() => setPasswordSuccess(false), 5000);
+      } else {
+        setPasswordError(data.error || 'Erreur lors du changement de mot de passe');
+      }
+    } catch (err) {
+      console.error('Password change error:', err);
+      setPasswordError('Erreur de connexion au serveur');
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
     updateSettings(tempSettings);
@@ -231,6 +292,9 @@ const Admin: React.FC = () => {
             <button onClick={() => setActiveTab('system')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'system' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
                 <Server className="w-5 h-5" /> Système & DB
             </button>
+            <button onClick={() => setActiveTab('security')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'security' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+                <Key className="w-5 h-5" /> Sécurité
+            </button>
         </nav>
 
         <div className="p-4 border-t border-slate-800">
@@ -253,6 +317,7 @@ const Admin: React.FC = () => {
                     {activeTab === 'status' && 'État des Services'}
                     {activeTab === 'settings' && 'Configuration du Site'}
                     {activeTab === 'system' && 'Configuration Système (Base de données)'}
+                    {activeTab === 'security' && 'Sécurité & Authentification'}
                 </h1>
                 <div className="text-sm text-slate-500 mt-1">Connecté en tant que Admin</div>
              </div>
@@ -1063,6 +1128,116 @@ const Admin: React.FC = () => {
                          </button>
                      </div>
                  </form>
+             </div>
+         )}
+
+         {/* SECURITY SECTION */}
+         {activeTab === 'security' && (
+             <div className="space-y-8 max-w-3xl">
+                 <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
+                     <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-200">
+                         <div className="p-3 bg-blue-100 rounded-xl">
+                             <Key className="w-6 h-6 text-blue-600" />
+                         </div>
+                         <div>
+                             <h2 className="text-2xl font-bold text-slate-900">Changer le mot de passe</h2>
+                             <p className="text-sm text-slate-500">Mettez à jour vos identifiants de connexion</p>
+                         </div>
+                     </div>
+
+                     <form onSubmit={handleChangePassword} className="space-y-6">
+                         <div>
+                             <label className="block text-sm font-bold text-slate-700 mb-2">
+                                 Mot de passe actuel
+                             </label>
+                             <input
+                                 type="password"
+                                 value={passwordForm.currentPassword}
+                                 onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                                 className="w-full p-3 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                                 required
+                                 disabled={passwordLoading}
+                             />
+                         </div>
+
+                         <div>
+                             <label className="block text-sm font-bold text-slate-700 mb-2">
+                                 Nouveau mot de passe
+                             </label>
+                             <input
+                                 type="password"
+                                 value={passwordForm.newPassword}
+                                 onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                                 className="w-full p-3 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                                 required
+                                 minLength={6}
+                                 disabled={passwordLoading}
+                             />
+                             <p className="text-xs text-slate-500 mt-1">Minimum 6 caractères</p>
+                         </div>
+
+                         <div>
+                             <label className="block text-sm font-bold text-slate-700 mb-2">
+                                 Confirmer le nouveau mot de passe
+                             </label>
+                             <input
+                                 type="password"
+                                 value={passwordForm.confirmPassword}
+                                 onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                                 className="w-full p-3 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                                 required
+                                 disabled={passwordLoading}
+                             />
+                         </div>
+
+                         {passwordError && (
+                             <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
+                                 <XCircle className="w-5 h-5 flex-shrink-0" />
+                                 <span className="text-sm font-semibold">{passwordError}</span>
+                             </div>
+                         )}
+
+                         {passwordSuccess && (
+                             <div className="flex items-center gap-2 p-4 bg-green-50 border border-green-200 rounded-xl text-green-700">
+                                 <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+                                 <span className="text-sm font-semibold">Mot de passe changé avec succès!</span>
+                             </div>
+                         )}
+
+                         <button
+                             type="submit"
+                             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition-colors disabled:bg-slate-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                             disabled={passwordLoading}
+                         >
+                             {passwordLoading ? (
+                                 <>
+                                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                                     <span>Modification en cours...</span>
+                                 </>
+                             ) : (
+                                 <>
+                                     <Shield className="w-5 h-5" />
+                                     <span>Changer le mot de passe</span>
+                                 </>
+                             )}
+                         </button>
+                     </form>
+                 </div>
+
+                 <div className="bg-orange-50 border border-orange-200 p-6 rounded-2xl">
+                     <div className="flex items-start gap-3">
+                         <Shield className="w-6 h-6 text-orange-600 flex-shrink-0 mt-0.5" />
+                         <div>
+                             <h3 className="font-bold text-orange-900 mb-2">Conseils de sécurité</h3>
+                             <ul className="text-sm text-orange-800 space-y-1">
+                                 <li>• Utilisez un mot de passe unique et complexe</li>
+                                 <li>• Changez votre mot de passe régulièrement</li>
+                                 <li>• Ne partagez jamais vos identifiants</li>
+                                 <li>• Utilisez un gestionnaire de mots de passe</li>
+                             </ul>
+                         </div>
+                     </div>
+                 </div>
              </div>
          )}
       </div>
