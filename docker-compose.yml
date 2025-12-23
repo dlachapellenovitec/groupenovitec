@@ -1,0 +1,205 @@
+version: '3.8'
+
+services:
+  # ============================================
+  # NGINX PROXY MANAGER
+  # Gestion des reverse proxy et certificats SSL
+  # Interface: http://your-server:81
+  # Default: admin@example.com / changeme
+  # ============================================
+  nginx-proxy-manager:
+    image: 'jc21/nginx-proxy-manager:latest'
+    container_name: nginx-proxy-manager
+    restart: unless-stopped
+    ports:
+      - '80:80'      # HTTP
+      - '443:443'    # HTTPS
+      - '81:81'      # Interface Admin
+    environment:
+      DB_SQLITE_FILE: "/data/database.sqlite"
+      DISABLE_IPV6: 'true'
+    volumes:
+      - ./nginx-data/data:/data
+      - ./nginx-data/letsencrypt:/etc/letsencrypt
+    networks:
+      - novitec-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:81"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ============================================
+  # PORTAINER
+  # Interface de gestion Docker
+  # Interface: http://your-server:9000
+  # ============================================
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: unless-stopped
+    ports:
+      - '9000:9000'
+      - '9443:9443'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./portainer-data:/data
+    networks:
+      - novitec-network
+    security_opt:
+      - no-new-privileges:true
+
+  # ============================================
+  # POSTGRESQL
+  # Base de données principale
+  # ============================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: novitec-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-novitec_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme_db_password}
+      POSTGRES_DB: ${DB_NAME:-novitec_db}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+      - ./backups:/backups
+    networks:
+      - novitec-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-novitec_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: >
+      postgres
+      -c shared_buffers=256MB
+      -c max_connections=200
+      -c work_mem=4MB
+      -c maintenance_work_mem=64MB
+
+  # ============================================
+  # REDIS
+  # Cache et gestion de sessions
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    container_name: novitec-redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD:-changeme_redis_password} --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - ./redis-data:/data
+    networks:
+      - novitec-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # APPLICATION NODE.JS
+  # Backend + Frontend servi
+  # ============================================
+  novitec-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: novitec-app
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+
+      # Database
+      DATABASE_URL: postgres://${DB_USER:-novitec_user}:${DB_PASSWORD:-changeme_db_password}@postgres:5432/${DB_NAME:-novitec_db}
+
+      # JWT Secret
+      JWT_SECRET: ${JWT_SECRET:-changeme_jwt_secret_very_long_and_secure}
+
+      # Redis
+      REDIS_URL: redis://:${REDIS_PASSWORD:-changeme_redis_password}@redis:6379
+
+      # CORS
+      FRONTEND_URL: ${FRONTEND_URL:-https://votre-domaine.com}
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    networks:
+      - novitec-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ============================================
+  # BACKUP AUTOMATIQUE
+  # Sauvegarde quotidienne de PostgreSQL
+  # ============================================
+  postgres-backup:
+    image: prodrigestivill/postgres-backup-local:16-alpine
+    container_name: novitec-backup
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${DB_NAME:-novitec_db}
+      POSTGRES_USER: ${DB_USER:-novitec_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme_db_password}
+      SCHEDULE: "@daily"
+      BACKUP_KEEP_DAYS: 7
+      BACKUP_KEEP_WEEKS: 4
+      BACKUP_KEEP_MONTHS: 6
+      HEALTHCHECK_PORT: 8080
+    volumes:
+      - ./backups:/backups
+    networks:
+      - novitec-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ============================================
+  # WATCHTOWER
+  # Auto-update des conteneurs Docker
+  # ============================================
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    restart: unless-stopped
+    environment:
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_POLL_INTERVAL: 86400  # 24 heures
+      WATCHTOWER_INCLUDE_RESTARTING: "true"
+      WATCHTOWER_INCLUDE_STOPPED: "false"
+      WATCHTOWER_NOTIFICATIONS: "shoutrrr"
+      WATCHTOWER_NOTIFICATION_URL: ${WATCHTOWER_NOTIFICATION_URL:-}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - novitec-network
+
+# ============================================
+# RÉSEAUX
+# ============================================
+networks:
+  novitec-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# ============================================
+# VOLUMES (optionnel - pour nommer les volumes)
+# ============================================
+volumes:
+  postgres-data:
+  redis-data:
+  nginx-data:
+  portainer-data:

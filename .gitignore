@@ -26,3 +26,16 @@ pnpm-debug.log*
 .vscode
 .idea
 *.swp
+
+# Docker
+.env
+.env.backup.*
+postgres-data
+redis-data
+nginx-data
+portainer-data
+backups
+uploads
+logs
+*.tar.gz
+*.sql
