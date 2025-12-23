@@ -14,9 +14,9 @@ const getApiUrl = () => {
   }
 
   // Sinon, utiliser le même host que la page actuelle avec le port 3001
-  const protocol = window.location.protocol;
+  // Forcer HTTP car le port 3001 n'a pas de SSL configuré
   const hostname = window.location.hostname;
-  return `${protocol}//${hostname}:3001`;
+  return `http://${hostname}:3001`;
 };
 
 const API_BASE_URL = getApiUrl();

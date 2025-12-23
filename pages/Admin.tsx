@@ -44,7 +44,8 @@ const Admin: React.FC = () => {
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
       return 'http://localhost:3001';
     }
-    return `${window.location.protocol}//${window.location.hostname}:3001`;
+    // Forcer HTTP car le port 3001 n'a pas de SSL configuré
+    return `http://${window.location.hostname}:3001`;
   };
 
   // Vérifier la connexion à la base de données
