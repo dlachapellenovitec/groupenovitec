@@ -4,15 +4,35 @@ const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
 const path = require('path');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const cookieParser = require('cookie-parser');
+const http = require('http');
+const { Server } = require('socket.io');
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    credentials: true
+  }
+});
+
 const PORT = process.env.PORT || 3001;
+const JWT_SECRET = process.env.JWT_SECRET || 'votre-secret-jwt-changez-moi-en-production';
+const SALT_ROUNDS = 10;
 
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  credentials: true
+}));
 app.use(express.json());
+app.use(cookieParser());
 
-const poolConfig = process.env.DATABASE_URL 
-  ? { 
+const poolConfig = process.env.DATABASE_URL
+  ? {
       connectionString: process.env.DATABASE_URL,
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
     }
@@ -26,13 +46,44 @@ const poolConfig = process.env.DATABASE_URL
 
 const pool = new Pool(poolConfig);
 
+// ============= MIDDLEWARE D'AUTHENTIFICATION =============
+
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1]; // Format: "Bearer TOKEN"
+
+  if (!token) {
+    return res.status(401).json({ error: 'Token d\'authentification requis' });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: 'Token invalide ou expiré' });
+    }
+    req.user = user;
+    next();
+  });
+};
+
+// ============= INITIALISATION DE LA BASE DE DONNÉES =============
+
 const initDb = async () => {
   console.log('⏳ Tentative de connexion à la base de données...');
   try {
     const client = await pool.connect();
     console.log('✅ Connecté à PostgreSQL avec succès');
 
+    // Création de toutes les tables
     await client.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        email TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_login TIMESTAMP
+      );
+
       CREATE TABLE IF NOT EXISTS site_settings (
         id SERIAL PRIMARY KEY,
         company_name TEXT DEFAULT 'GROUPE NOVITEC',
@@ -121,10 +172,26 @@ const initDb = async () => {
 
     console.log('📦 Structure de la base de données vérifiée');
 
+    // Initialiser les réglages par défaut
     const settingsCheck = await client.query('SELECT id FROM site_settings WHERE id = 1');
     if (settingsCheck.rows.length === 0) {
       await client.query('INSERT INTO site_settings (id) VALUES (1)');
       console.log('ℹ️ Réglages par défaut initialisés');
+    }
+
+    // Créer un utilisateur admin par défaut si aucun utilisateur n'existe
+    const userCheck = await client.query('SELECT id FROM users LIMIT 1');
+    if (userCheck.rows.length === 0) {
+      const defaultPassword = 'admin123'; // Mot de passe temporaire à changer
+      const hashedPassword = await bcrypt.hash(defaultPassword, SALT_ROUNDS);
+      await client.query(
+        'INSERT INTO users (username, password_hash, email) VALUES ($1, $2, $3)',
+        ['admin', hashedPassword, 'admin@novitec.ca']
+      );
+      console.log('👤 Utilisateur admin créé par défaut');
+      console.log('   Username: admin');
+      console.log('   Password: admin123');
+      console.log('   ⚠️  CHANGEZ CE MOT DE PASSE IMMÉDIATEMENT!');
     }
 
     client.release();
@@ -135,9 +202,25 @@ const initDb = async () => {
 
 initDb();
 
-// --- API ROUTES ---
+// ============= WEBSOCKET POUR SYNCHRONISATION TEMPS RÉEL =============
 
-// Health Check
+io.on('connection', (socket) => {
+  console.log('🔌 Client connecté:', socket.id);
+
+  socket.on('disconnect', () => {
+    console.log('🔌 Client déconnecté:', socket.id);
+  });
+});
+
+// Fonction helper pour notifier tous les clients d'un changement
+const notifyClients = (event, data) => {
+  io.emit(event, data);
+  console.log(`📡 Notification envoyée: ${event}`);
+};
+
+// ============= ROUTES D'AUTHENTIFICATION (PUBLIQUES) =============
+
+// Health Check (public)
 app.get('/api/health', async (req, res) => {
   try {
     const client = await pool.connect();
@@ -149,7 +232,93 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// TEST DE CONNEXION (Reçoit une URL de DB et tente de s'y connecter)
+// Login
+app.post('/api/auth/login', async (req, res) => {
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username et password requis' });
+  }
+
+  try {
+    const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+    const user = result.rows[0];
+
+    if (!user) {
+      return res.status(401).json({ error: 'Identifiants incorrects' });
+    }
+
+    const validPassword = await bcrypt.compare(password, user.password_hash);
+    if (!validPassword) {
+      return res.status(401).json({ error: 'Identifiants incorrects' });
+    }
+
+    // Mettre à jour la dernière connexion
+    await pool.query('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1', [user.id]);
+
+    // Créer le token JWT
+    const token = jwt.sign(
+      { id: user.id, username: user.username },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email
+      }
+    });
+  } catch (err) {
+    console.error('Erreur de login:', err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Vérifier le token
+app.get('/api/auth/verify', authenticateToken, (req, res) => {
+  res.json({ valid: true, user: req.user });
+});
+
+// Changer le mot de passe (protégé)
+app.post('/api/auth/change-password', authenticateToken, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'Mot de passe actuel et nouveau requis' });
+  }
+
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'Le nouveau mot de passe doit contenir au moins 6 caractères' });
+  }
+
+  try {
+    const result = await pool.query('SELECT * FROM users WHERE id = $1', [req.user.id]);
+    const user = result.rows[0];
+
+    if (!user) {
+      return res.status(404).json({ error: 'Utilisateur non trouvé' });
+    }
+
+    const validPassword = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!validPassword) {
+      return res.status(401).json({ error: 'Mot de passe actuel incorrect' });
+    }
+
+    const hashedNewPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
+    await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hashedNewPassword, user.id]);
+
+    res.json({ success: true, message: 'Mot de passe changé avec succès' });
+  } catch (err) {
+    console.error('Erreur de changement de mot de passe:', err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// TEST DE CONNEXION (Reçoit une URL de DB et tente de s'y connecter) - Public pour configuration initiale
 app.post('/api/test-db-connection', async (req, res) => {
     const { url } = req.body;
     if (!url) return res.status(400).json({ error: 'URL manquante' });
@@ -172,6 +341,9 @@ app.post('/api/test-db-connection', async (req, res) => {
     }
 });
 
+// ============= ROUTES PROTÉGÉES =============
+
+// Settings
 app.get('/api/settings', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM site_settings WHERE id = 1');
@@ -190,17 +362,19 @@ app.get('/api/settings', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.put('/api/settings', async (req, res) => {
+app.put('/api/settings', authenticateToken, async (req, res) => {
   const s = req.body;
   try {
     await pool.query(
       `UPDATE site_settings SET company_name=$1, phone=$2, email=$3, address=$4, city=$5, logo_url=$6, linkedin_url=$7, facebook_url=$8, announcement=$9 WHERE id=1`,
       [s.companyName, s.phone, s.email, s.address, s.city, s.logoUrl, s.linkedinUrl, s.facebookUrl, JSON.stringify(s.announcement)]
     );
+    notifyClients('settings:updated', s);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Blog Posts
 app.get('/api/posts', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM blog_posts ORDER BY created_at DESC');
@@ -213,24 +387,27 @@ app.get('/api/posts', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/posts', async (req, res) => {
+app.post('/api/posts', authenticateToken, async (req, res) => {
   const { title, excerpt, content, category, author, imageUrl } = req.body;
   try {
-    await pool.query(
-      'INSERT INTO blog_posts (title, excerpt, content, category, author, image_url) VALUES ($1,$2,$3,$4,$5,$6)',
+    const result = await pool.query(
+      'INSERT INTO blog_posts (title, excerpt, content, category, author, image_url) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
       [title, excerpt, content, category, author, imageUrl]
     );
+    notifyClients('posts:created', result.rows[0]);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.delete('/api/posts/:id', async (req, res) => {
+app.delete('/api/posts/:id', authenticateToken, async (req, res) => {
   try {
     await pool.query('DELETE FROM blog_posts WHERE id = $1', [req.params.id]);
+    notifyClients('posts:deleted', { id: req.params.id });
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Jobs
 app.get('/api/jobs', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM job_postings ORDER BY created_at DESC');
@@ -238,21 +415,24 @@ app.get('/api/jobs', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/jobs', async (req, res) => {
+app.post('/api/jobs', authenticateToken, async (req, res) => {
   const { title, location, type, summary } = req.body;
   try {
     await pool.query('INSERT INTO job_postings (title, location, type, summary) VALUES ($1,$2,$3,$4)', [title, location, type, summary]);
+    notifyClients('jobs:created', req.body);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.delete('/api/jobs/:id', async (req, res) => {
+app.delete('/api/jobs/:id', authenticateToken, async (req, res) => {
   try {
     await pool.query('DELETE FROM job_postings WHERE id = $1', [req.params.id]);
+    notifyClients('jobs:deleted', { id: req.params.id });
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Team
 app.get('/api/team', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM team_members ORDER BY id ASC');
@@ -260,21 +440,24 @@ app.get('/api/team', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/team', async (req, res) => {
+app.post('/api/team', authenticateToken, async (req, res) => {
   const { name, role, bio, imageUrl, linkedinUrl, quote } = req.body;
   try {
     await pool.query('INSERT INTO team_members (name, role, bio, image_url, linkedin_url, quote) VALUES ($1,$2,$3,$4,$5,$6)', [name, role, bio, imageUrl, linkedinUrl, quote]);
+    notifyClients('team:created', req.body);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.delete('/api/team/:id', async (req, res) => {
+app.delete('/api/team/:id', authenticateToken, async (req, res) => {
   try {
     await pool.query('DELETE FROM team_members WHERE id = $1', [req.params.id]);
+    notifyClients('team:deleted', { id: req.params.id });
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// System Status
 app.get('/api/status', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM system_status ORDER BY category, name ASC');
@@ -282,14 +465,16 @@ app.get('/api/status', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.put('/api/status/:id', async (req, res) => {
+app.put('/api/status/:id', authenticateToken, async (req, res) => {
   const { status, note } = req.body;
   try {
     await pool.query('UPDATE system_status SET status = $1, note = $2 WHERE id = $3', [status, note, req.params.id]);
+    notifyClients('status:updated', { id: req.params.id, status, note });
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Partners - Strategic
 app.get('/api/partners/strategic', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM strategic_partners ORDER BY id ASC');
@@ -297,17 +482,19 @@ app.get('/api/partners/strategic', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.put('/api/partners/strategic/:id', async (req, res) => {
+app.put('/api/partners/strategic/:id', authenticateToken, async (req, res) => {
   const p = req.body;
   try {
     await pool.query(
       'UPDATE strategic_partners SET name=$1, role=$2, description=$3, logo_url=$4, badge_text=$5, theme_color=$6 WHERE id=$7',
       [p.name, p.role, p.description, p.logoUrl, p.badgeText, p.themeColor, req.params.id]
     );
+    notifyClients('partners:updated', p);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Partners - Standard
 app.get('/api/partners/standard', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM standard_partners ORDER BY category, name ASC');
@@ -315,21 +502,24 @@ app.get('/api/partners/standard', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/partners/standard', async (req, res) => {
+app.post('/api/partners/standard', authenticateToken, async (req, res) => {
   const { name, category, description, logoUrl } = req.body;
   try {
     await pool.query('INSERT INTO standard_partners (name, category, description, logo_url) VALUES ($1,$2,$3,$4)', [name, category, description, logoUrl]);
+    notifyClients('partners:created', req.body);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.delete('/api/partners/standard/:id', async (req, res) => {
+app.delete('/api/partners/standard/:id', authenticateToken, async (req, res) => {
   try {
     await pool.query('DELETE FROM standard_partners WHERE id = $1', [req.params.id]);
+    notifyClients('partners:deleted', { id: req.params.id });
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Clients
 app.get('/api/clients', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM client_logos ORDER BY id ASC');
@@ -337,21 +527,24 @@ app.get('/api/clients', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/clients', async (req, res) => {
+app.post('/api/clients', authenticateToken, async (req, res) => {
   const { name, logoUrl } = req.body;
   try {
     await pool.query('INSERT INTO client_logos (name, logo_url) VALUES ($1, $2)', [name, logoUrl]);
+    notifyClients('clients:created', req.body);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.delete('/api/clients/:id', async (req, res) => {
+app.delete('/api/clients/:id', authenticateToken, async (req, res) => {
   try {
     await pool.query('DELETE FROM client_logos WHERE id = $1', [req.params.id]);
+    notifyClients('clients:deleted', { id: req.params.id });
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Incidents
 app.get('/api/incidents', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM incidents ORDER BY created_at DESC LIMIT 10');
@@ -359,26 +552,34 @@ app.get('/api/incidents', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/incidents', async (req, res) => {
+app.post('/api/incidents', authenticateToken, async (req, res) => {
   const { date, title, message, severity } = req.body;
   try {
     await pool.query('INSERT INTO incidents (date_str, title, message, severity) VALUES ($1, $2, $3, $4)', [date, title, message, severity]);
+    notifyClients('incidents:created', req.body);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.delete('/api/incidents/:id', async (req, res) => {
+app.delete('/api/incidents/:id', authenticateToken, async (req, res) => {
   try {
     await pool.query('DELETE FROM incidents WHERE id = $1', [req.params.id]);
+    notifyClients('incidents:deleted', { id: req.params.id });
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+
+// ============= ROUTES STATIC (FRONTEND) =============
 
 app.use(express.static(path.join(__dirname, '../dist')));
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../dist', 'index.html'));
 });
 
-app.listen(PORT, () => {
+// ============= DÉMARRAGE DU SERVEUR =============
+
+server.listen(PORT, () => {
   console.log(`🚀 Serveur NOVITEC lancé sur le port ${PORT}`);
+  console.log(`🔐 Authentification JWT activée`);
+  console.log(`🔌 WebSocket (Socket.IO) activé pour synchronisation temps réel`);
 });

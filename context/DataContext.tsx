@@ -1,11 +1,19 @@
 
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
+import { io, Socket } from 'socket.io-client';
 
 const getBaseUrl = () => {
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     return 'http://localhost:3001/api';
   }
   return '/api';
+};
+
+const getSocketUrl = () => {
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://localhost:3001';
+  }
+  return window.location.origin;
 };
 
 const API_BASE_URL = getBaseUrl();
@@ -93,69 +101,114 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => { fetchAll(); }, []);
 
+  // Socket.IO pour synchronisation temps réel
+  useEffect(() => {
+    const socket: Socket = io(getSocketUrl(), {
+      transports: ['websocket', 'polling']
+    });
+
+    socket.on('connect', () => {
+      console.log('🔌 Connected to real-time sync');
+    });
+
+    // Écouter les événements de mise à jour en temps réel
+    socket.on('settings:updated', () => fetchAll());
+    socket.on('posts:created', () => fetchAll());
+    socket.on('posts:deleted', () => fetchAll());
+    socket.on('jobs:created', () => fetchAll());
+    socket.on('jobs:deleted', () => fetchAll());
+    socket.on('team:created', () => fetchAll());
+    socket.on('team:deleted', () => fetchAll());
+    socket.on('clients:created', () => fetchAll());
+    socket.on('clients:deleted', () => fetchAll());
+    socket.on('partners:updated', () => fetchAll());
+    socket.on('partners:created', () => fetchAll());
+    socket.on('partners:deleted', () => fetchAll());
+    socket.on('status:updated', () => fetchAll());
+    socket.on('incidents:created', () => fetchAll());
+    socket.on('incidents:deleted', () => fetchAll());
+
+    socket.on('disconnect', () => {
+      console.log('🔌 Disconnected from real-time sync');
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
+
+  // Helper pour obtenir le token d'authentification
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('auth_token');
+    return {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
+  };
+
   const addPost = async (post: any) => {
-    await fetch(`${API_BASE_URL}/posts`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(post) });
+    await fetch(`${API_BASE_URL}/posts`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(post) });
     await fetchAll();
   };
   const deletePost = async (id: string) => {
-    await fetch(`${API_BASE_URL}/posts/${id}`, { method: 'DELETE' });
+    await fetch(`${API_BASE_URL}/posts/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
     await fetchAll();
   };
   const addJob = async (job: any) => {
-    await fetch(`${API_BASE_URL}/jobs`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(job) });
+    await fetch(`${API_BASE_URL}/jobs`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(job) });
     await fetchAll();
   };
   const deleteJob = async (id: string) => {
-    await fetch(`${API_BASE_URL}/jobs/${id}`, { method: 'DELETE' });
+    await fetch(`${API_BASE_URL}/jobs/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
     await fetchAll();
   };
   const updateSettings = async (newSettings: SiteSettings) => {
-    await fetch(`${API_BASE_URL}/settings`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSettings) });
+    await fetch(`${API_BASE_URL}/settings`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(newSettings) });
     await fetchAll();
   };
   const updateCompanyStory = async (story: CompanyStory) => {
     // Note: l'API story n'était pas implémentée, on l'ajoute ou on utilise settings si besoin. Ici on assume l'existence du endpoint.
-    await fetch(`${API_BASE_URL}/story`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(story) });
+    await fetch(`${API_BASE_URL}/story`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(story) });
     await fetchAll();
   };
   const addTeamMember = async (member: any) => {
-    await fetch(`${API_BASE_URL}/team`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(member) });
+    await fetch(`${API_BASE_URL}/team`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(member) });
     await fetchAll();
   };
   const deleteTeamMember = async (id: string) => {
-    await fetch(`${API_BASE_URL}/team/${id}`, { method: 'DELETE' });
+    await fetch(`${API_BASE_URL}/team/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
     await fetchAll();
   };
   const addClientLogo = async (client: any) => {
-    await fetch(`${API_BASE_URL}/clients`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(client) });
+    await fetch(`${API_BASE_URL}/clients`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(client) });
     await fetchAll();
   };
   const deleteClientLogo = async (id: string) => {
-    await fetch(`${API_BASE_URL}/clients/${id}`, { method: 'DELETE' });
+    await fetch(`${API_BASE_URL}/clients/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
     await fetchAll();
   };
   const updateStrategicPartner = async (id: string, partner: StrategicPartner) => {
-    await fetch(`${API_BASE_URL}/partners/strategic/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(partner) });
+    await fetch(`${API_BASE_URL}/partners/strategic/${id}`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(partner) });
     await fetchAll();
   };
   const addStandardPartner = async (partner: any) => {
-    await fetch(`${API_BASE_URL}/partners/standard`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(partner) });
+    await fetch(`${API_BASE_URL}/partners/standard`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(partner) });
     await fetchAll();
   };
   const deleteStandardPartner = async (id: string) => {
-    await fetch(`${API_BASE_URL}/partners/standard/${id}`, { method: 'DELETE' });
+    await fetch(`${API_BASE_URL}/partners/standard/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
     await fetchAll();
   };
   const updateSystemStatus = async (id: string, status: string, note?: string) => {
-    await fetch(`${API_BASE_URL}/status/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status, note }) });
+    await fetch(`${API_BASE_URL}/status/${id}`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify({ status, note }) });
     await fetchAll();
   };
   const addIncident = async (incident: any) => {
-    await fetch(`${API_BASE_URL}/incidents`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(incident) });
+    await fetch(`${API_BASE_URL}/incidents`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(incident) });
     await fetchAll();
   };
   const deleteIncident = async (id: string) => {
-    await fetch(`${API_BASE_URL}/incidents/${id}`, { method: 'DELETE' });
+    await fetch(`${API_BASE_URL}/incidents/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
     await fetchAll();
   };
 
