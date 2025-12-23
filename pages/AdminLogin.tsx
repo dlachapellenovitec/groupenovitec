@@ -2,7 +2,24 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Shield, Lock, Hexagon, User, AlertCircle } from 'lucide-react';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+// Détection automatique de l'URL de l'API
+const getApiUrl = () => {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+
+  // Si on est sur localhost (dev), utiliser localhost:3001
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://localhost:3001';
+  }
+
+  // Sinon, utiliser le même host que la page actuelle avec le port 3001
+  const protocol = window.location.protocol;
+  const hostname = window.location.hostname;
+  return `${protocol}//${hostname}:3001`;
+};
+
+const API_BASE_URL = getApiUrl();
 
 const AdminLogin: React.FC = () => {
   const [username, setUsername] = useState('');

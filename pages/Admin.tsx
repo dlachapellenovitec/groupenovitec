@@ -39,10 +39,18 @@ const Admin: React.FC = () => {
   const [testResult, setTestResult] = useState<{status: 'idle' | 'loading' | 'success' | 'error', msg: string}>({status: 'idle', msg: ''});
   const [copied, setCopied] = useState(false);
 
+  // Helper pour obtenir l'URL de base de l'API
+  const getBaseUrl = () => {
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return 'http://localhost:3001';
+    }
+    return `${window.location.protocol}//${window.location.hostname}:3001`;
+  };
+
   // Vérifier la connexion à la base de données
   const checkDbHealth = async () => {
     try {
-      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
+      const baseUrl = getBaseUrl();
       const res = await fetch(`${baseUrl}/api/health`);
       if (res.ok) setDbStatus('connected');
       else setDbStatus('error');
@@ -61,7 +69,7 @@ const Admin: React.FC = () => {
       e.preventDefault();
       setTestResult({status: 'loading', msg: 'Test en cours...'});
       try {
-          const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
+          const baseUrl = getBaseUrl();
           const res = await fetch(`${baseUrl}/api/test-db-connection`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -215,7 +223,7 @@ const Admin: React.FC = () => {
 
     try {
       const token = localStorage.getItem('auth_token');
-      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
+      const baseUrl = getBaseUrl();
 
       const response = await fetch(`${baseUrl}/api/auth/change-password`, {
         method: 'POST',
