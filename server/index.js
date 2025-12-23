@@ -34,14 +34,15 @@ app.use(cookieParser());
 const poolConfig = process.env.DATABASE_URL
   ? {
       connectionString: process.env.DATABASE_URL,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+      ssl: false  // Désactiver SSL pour Docker (PostgreSQL Alpine)
     }
   : {
-      user: process.env.DB_USER || 'postgres',
-      host: process.env.DB_HOST || 'localhost',
+      user: process.env.DB_USER || 'novitec_user',
+      host: process.env.DB_HOST || 'postgres',
       database: process.env.DB_NAME || 'novitec_db',
-      password: process.env.DB_PASSWORD || 'password',
+      password: process.env.DB_PASSWORD || 'changeme_db_password',
       port: process.env.DB_PORT || 5432,
+      ssl: false
     };
 
 const pool = new Pool(poolConfig);
