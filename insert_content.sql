@@ -6,7 +6,7 @@
 -- ============================================================================
 
 -- Article 1: Microsoft 365
-INSERT INTO posts (title, excerpt, content, category, author, image_url, created_at)
+INSERT INTO blog_posts (title, excerpt, content, category, author, image_url, created_at)
 VALUES (
   'Microsoft 365 : La Solution Cloud Complète pour Votre Entreprise',
   'Découvrez comment Microsoft 365 transforme la productivité et la collaboration de votre entreprise avec des outils cloud intégrés et sécurisés.',
@@ -18,7 +18,7 @@ VALUES (
 );
 
 -- Article 2: Huntress EDR
-INSERT INTO posts (title, excerpt, content, category, author, image_url, created_at)
+INSERT INTO blog_posts (title, excerpt, content, category, author, image_url, created_at)
 VALUES (
   'Huntress EDR : Protection Avancée Contre les Cybermenaces',
   'La cybersécurité n''est plus optionnelle. Découvrez comment Huntress EDR protège votre entreprise 24/7 contre les ransomwares et menaces persistantes.',
@@ -30,7 +30,7 @@ VALUES (
 );
 
 -- Article 3: Huntress ITDR
-INSERT INTO posts (title, excerpt, content, category, author, image_url, created_at)
+INSERT INTO blog_posts (title, excerpt, content, category, author, image_url, created_at)
 VALUES (
   'Huntress ITDR : Protégez Vos Identités Contre les Attaques',
   'Les identités sont la nouvelle frontière de la cybersécurité. Découvrez comment Huntress ITDR détecte et bloque les attaques ciblant vos comptes utilisateurs.',
@@ -42,7 +42,7 @@ VALUES (
 );
 
 -- Article 4: MSP vs À l'heure
-INSERT INTO posts (title, excerpt, content, category, author, image_url, created_at)
+INSERT INTO blog_posts (title, excerpt, content, category, author, image_url, created_at)
 VALUES (
   'Contrat MSP vs Support à l''Heure : Quel Modèle Choisir?',
   'Découvrez pourquoi un contrat MSP mensuel fixe est plus avantageux qu''un support informatique à l''heure pour votre entreprise.',
@@ -54,7 +54,7 @@ VALUES (
 );
 
 -- Article 5: Cybersécurité pour PME
-INSERT INTO posts (title, excerpt, content, category, author, image_url, created_at)
+INSERT INTO blog_posts (title, excerpt, content, category, author, image_url, created_at)
 VALUES (
   '10 Mesures de Cybersécurité Essentielles pour les PME Québécoises',
   'Les PME sont des cibles de choix pour les cybercriminels. Découvrez les 10 mesures essentielles pour protéger votre entreprise dès aujourd''hui.',
@@ -186,6 +186,6 @@ VALUES (
 
 -- Message de confirmation
 SELECT 'Contenu inséré avec succès!' AS status,
-       (SELECT COUNT(*) FROM posts) AS nombre_articles,
+       (SELECT COUNT(*) FROM blog_posts) AS nombre_articles,
        (SELECT COUNT(*) FROM team_members) AS nombre_employes,
        (SELECT COUNT(*) FROM company_story) AS histoire_entreprise;

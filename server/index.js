@@ -169,6 +169,14 @@ const initDb = async () => {
         severity TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+
+      CREATE TABLE IF NOT EXISTS company_story (
+        id SERIAL PRIMARY KEY,
+        founding_year TEXT DEFAULT '2018',
+        intro TEXT,
+        mission TEXT,
+        vision TEXT
+      );
     `);
 
     console.log('📦 Structure de la base de données vérifiée');
