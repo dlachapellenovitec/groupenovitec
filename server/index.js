@@ -408,6 +408,18 @@ app.post('/api/posts', authenticateToken, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+app.put('/api/posts/:id', authenticateToken, async (req, res) => {
+  try {
+    const { title, excerpt, content, category, author, imageUrl } = req.body;
+    const result = await pool.query(
+      'UPDATE blog_posts SET title = $1, excerpt = $2, content = $3, category = $4, author = $5, image_url = $6 WHERE id = $7 RETURNING *',
+      [title, excerpt, content, category, author, imageUrl, req.params.id]
+    );
+    notifyClients('posts:updated', result.rows[0]);
+    res.json({ success: true, post: result.rows[0] });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.delete('/api/posts/:id', authenticateToken, async (req, res) => {
   try {
     await pool.query('DELETE FROM blog_posts WHERE id = $1', [req.params.id]);

@@ -36,7 +36,7 @@ interface DataContextType {
   posts: BlogPost[]; jobs: JobPosting[]; settings: SiteSettings; teamMembers: TeamMember[]; clientLogos: ClientLogo[]; companyStory: CompanyStory; strategicPartners: StrategicPartner[]; standardPartners: StandardPartner[];
   systemStatus: SystemStatusItem[]; incidents: IncidentItem[];
   isQuizOpen: boolean; openQuiz: () => void; closeQuiz: () => void;
-  addPost: (post: Omit<BlogPost, 'id' | 'date'>) => Promise<void>; deletePost: (id: string) => Promise<void>;
+  addPost: (post: Omit<BlogPost, 'id' | 'date'>) => Promise<void>; updatePost: (id: string, post: Omit<BlogPost, 'id' | 'date'>) => Promise<void>; deletePost: (id: string) => Promise<void>;
   addJob: (job: Omit<JobPosting, 'id'>) => Promise<void>; deleteJob: (id: string) => Promise<void>;
   updateSettings: (newSettings: SiteSettings) => Promise<void>;
   addTeamMember: (member: Omit<TeamMember, 'id'>) => Promise<void>; deleteTeamMember: (id: string) => Promise<void>;
@@ -114,6 +114,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // Écouter les événements de mise à jour en temps réel
     socket.on('settings:updated', () => fetchAll());
     socket.on('posts:created', () => fetchAll());
+    socket.on('posts:updated', () => fetchAll());
     socket.on('posts:deleted', () => fetchAll());
     socket.on('jobs:created', () => fetchAll());
     socket.on('jobs:deleted', () => fetchAll());
@@ -148,6 +149,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const addPost = async (post: any) => {
     await fetch(`${API_BASE_URL}/posts`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(post) });
+    await fetchAll();
+  };
+  const updatePost = async (id: string, post: any) => {
+    await fetch(`${API_BASE_URL}/posts/${id}`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(post) });
     await fetchAll();
   };
   const deletePost = async (id: string) => {
@@ -216,7 +221,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     <DataContext.Provider value={{ 
       posts, jobs, settings, teamMembers, companyStory, clientLogos, strategicPartners, standardPartners,
       systemStatus, incidents, isQuizOpen, openQuiz, closeQuiz,
-      addPost, deletePost, addJob, deleteJob, updateSettings, 
+      addPost, updatePost, deletePost, addJob, deleteJob, updateSettings, 
       addTeamMember, deleteTeamMember, addClientLogo, deleteClientLogo, updateCompanyStory,
       updateStrategicPartner, addStandardPartner, deleteStandardPartner,
       updateSystemStatus, addIncident, deleteIncident,

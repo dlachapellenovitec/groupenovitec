@@ -5,17 +5,18 @@ import { Link } from 'react-router-dom';
 import { LayoutDashboard, FileText, Briefcase, Plus, Trash2, Shield, ArrowLeft, Settings, Save, AlertTriangle, Users, Building, Handshake, Edit, Activity, CheckCircle2, XCircle, Database, Server, Key, Copy, Check } from 'lucide-react';
 
 const Admin: React.FC = () => {
-  const { 
+  const {
     posts, jobs, settings, teamMembers, companyStory, clientLogos, strategicPartners, standardPartners,
     systemStatus, incidents,
-    addPost, deletePost, addJob, deleteJob, updateSettings, 
+    addPost, updatePost, deletePost, addJob, deleteJob, updateSettings,
     addTeamMember, deleteTeamMember, addClientLogo, deleteClientLogo, updateCompanyStory,
     updateStrategicPartner, addStandardPartner, deleteStandardPartner,
     updateSystemStatus, addIncident, deleteIncident
   } = useData();
-  
+
   const [activeTab, setActiveTab] = useState<'blog' | 'careers' | 'about' | 'settings' | 'clients' | 'partners' | 'status' | 'system' | 'security'>('blog');
   const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'error'>('checking');
+  const [editingPost, setEditingPost] = useState<BlogPost | null>(null);
 
   // Security/Password Change States
   const [passwordForm, setPasswordForm] = useState({
@@ -138,11 +139,39 @@ const Admin: React.FC = () => {
 
   const handleAddPost = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPost.title && newPost.content) {
-      addPost(newPost as Omit<BlogPost, 'id' | 'date'>);
-      setNewPost({ title: '', category: 'Cybersécurité', author: 'Admin', content: '', excerpt: '', imageUrl: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=800' });
-      alert('Article ajouté !');
+    if (editingPost) {
+      // Mode édition
+      if (newPost.title && newPost.content) {
+        updatePost(editingPost.id, newPost as Omit<BlogPost, 'id' | 'date'>);
+        setNewPost({ title: '', category: 'Cybersécurité', author: 'Admin', content: '', excerpt: '', imageUrl: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=800' });
+        setEditingPost(null);
+        alert('Article mis à jour !');
+      }
+    } else {
+      // Mode ajout
+      if (newPost.title && newPost.content) {
+        addPost(newPost as Omit<BlogPost, 'id' | 'date'>);
+        setNewPost({ title: '', category: 'Cybersécurité', author: 'Admin', content: '', excerpt: '', imageUrl: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=800' });
+        alert('Article ajouté !');
+      }
     }
+  };
+
+  const handleEditPost = (post: BlogPost) => {
+    setEditingPost(post);
+    setNewPost({
+      title: post.title,
+      category: post.category,
+      author: post.author,
+      content: post.content,
+      excerpt: post.excerpt,
+      imageUrl: post.imageUrl
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingPost(null);
+    setNewPost({ title: '', category: 'Cybersécurité', author: 'Admin', content: '', excerpt: '', imageUrl: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=800' });
   };
 
   const handleAddJob = (e: React.FormEvent) => {
@@ -484,19 +513,30 @@ const Admin: React.FC = () => {
                                         <span className="text-xs text-slate-500">{post.category} • {post.date}</span>
                                     </div>
                                 </div>
-                                <button onClick={() => deletePost(post.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Supprimer">
-                                    <Trash2 className="w-5 h-5" />
-                                </button>
+                                <div className="flex gap-2">
+                                    <button onClick={() => handleEditPost(post)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Modifier">
+                                        <Edit className="w-5 h-5" />
+                                    </button>
+                                    <button onClick={() => deletePost(post.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Supprimer">
+                                        <Trash2 className="w-5 h-5" />
+                                    </button>
+                                </div>
                             </div>
                         ))
                      )}
                  </div>
 
-                 {/* Add Form */}
+                 {/* Add/Edit Form */}
                  <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-200 h-fit">
-                     <h2 className="font-bold text-lg text-slate-900 mb-6 flex items-center gap-2">
-                         <Plus className="w-5 h-5" /> Ajouter un article
-                     </h2>
+                     <div className="flex justify-between items-center mb-6">
+                         <h2 className="font-bold text-lg text-slate-900 flex items-center gap-2">
+                             {editingPost ? <Edit className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                             {editingPost ? 'Modifier l\'article' : 'Ajouter un article'}
+                         </h2>
+                         {editingPost && (
+                             <button type="button" onClick={handleCancelEdit} className="text-sm text-slate-500 hover:text-slate-700">Annuler</button>
+                         )}
+                     </div>
                      <form onSubmit={handleAddPost} className="space-y-4">
                          <div>
                              <label className="block text-sm font-medium text-slate-700 mb-1">Titre</label>
@@ -529,7 +569,9 @@ const Admin: React.FC = () => {
                              <label className="block text-sm font-medium text-slate-700 mb-1">Contenu Complet</label>
                              <textarea className="w-full p-2 bg-white border border-slate-300 rounded-lg h-40 text-slate-900" value={newPost.content} onChange={e => setNewPost({...newPost, content: e.target.value})} required></textarea>
                          </div>
-                         <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors">Publier</button>
+                         <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors">
+                             {editingPost ? 'Mettre à jour' : 'Publier'}
+                         </button>
                      </form>
                  </div>
              </div>
