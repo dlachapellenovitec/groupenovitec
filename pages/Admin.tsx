@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useData, BlogPost, JobPosting, SiteSettings, TeamMember, CompanyStory, ClientLogo, StrategicPartner, StandardPartner, IncidentItem } from '../context/DataContext';
 import { Link } from 'react-router-dom';
 import { LayoutDashboard, FileText, Briefcase, Plus, Trash2, Shield, ArrowLeft, Settings, Save, AlertTriangle, Users, Building, Handshake, Edit, Activity, CheckCircle2, XCircle, Database, Server, Key, Copy, Check } from 'lucide-react';
+import BlogEditor from '../components/BlogEditor';
 
 const Admin: React.FC = () => {
   const {
@@ -566,8 +567,12 @@ const Admin: React.FC = () => {
                              <textarea className="w-full p-2 bg-white border border-slate-300 rounded-lg h-20 text-slate-900" value={newPost.excerpt} onChange={e => setNewPost({...newPost, excerpt: e.target.value})} required></textarea>
                          </div>
                          <div>
-                             <label className="block text-sm font-medium text-slate-700 mb-1">Contenu Complet</label>
-                             <textarea className="w-full p-2 bg-white border border-slate-300 rounded-lg h-40 text-slate-900" value={newPost.content} onChange={e => setNewPost({...newPost, content: e.target.value})} required></textarea>
+                             <label className="block text-sm font-medium text-slate-700 mb-2">Contenu Complet (Markdown)</label>
+                             <BlogEditor
+                                 value={newPost.content || ''}
+                                 onChange={(content) => setNewPost({...newPost, content})}
+                                 placeholder="Écrivez votre article en Markdown... Utilisez # pour les titres, ** pour le gras, - pour les listes, etc."
+                             />
                          </div>
                          <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors">
                              {editingPost ? 'Mettre à jour' : 'Publier'}
