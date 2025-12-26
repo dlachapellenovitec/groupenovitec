@@ -758,10 +758,35 @@ const Admin: React.FC = () => {
                                          <input
                                              type="text"
                                              className="w-full p-3 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
-                                             value={newPost.imageUrl}
+                                             value={newPost.imageUrl || ''}
                                              onChange={e => setNewPost({...newPost, imageUrl: e.target.value})}
-                                             placeholder="https://example.com/image.jpg"
+                                             placeholder="https://images.unsplash.com/photo-1..."
                                          />
+                                         {newPost.imageUrl && (
+                                             <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                                                 <p className="text-xs text-slate-600 mb-2 font-bold">Aperçu de l'image :</p>
+                                                 <img
+                                                     src={newPost.imageUrl}
+                                                     alt="Aperçu"
+                                                     className="w-full h-48 object-cover rounded-lg"
+                                                     onError={(e) => {
+                                                         e.currentTarget.style.display = 'none';
+                                                         const parent = e.currentTarget.parentElement;
+                                                         if (parent && !parent.querySelector('.error-message')) {
+                                                             const errorDiv = document.createElement('div');
+                                                             errorDiv.className = 'error-message text-red-600 text-sm bg-red-50 p-3 rounded border border-red-200';
+                                                             errorDiv.innerHTML = '⚠️ Image impossible à charger. Vérifiez l\'URL.';
+                                                             parent.appendChild(errorDiv);
+                                                         }
+                                                     }}
+                                                     onLoad={(e) => {
+                                                         const parent = e.currentTarget.parentElement;
+                                                         const errorMsg = parent?.querySelector('.error-message');
+                                                         if (errorMsg) errorMsg.remove();
+                                                     }}
+                                                 />
+                                             </div>
+                                         )}
                                      </div>
 
                                      <div className="col-span-2">
@@ -1558,10 +1583,35 @@ const Admin: React.FC = () => {
                                          <input
                                              type="text"
                                              className="w-full p-3 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
-                                             value={newMember.imageUrl}
+                                             value={newMember.imageUrl || ''}
                                              onChange={e => setNewMember({...newMember, imageUrl: e.target.value})}
-                                             placeholder="https://example.com/photo.jpg"
+                                             placeholder="https://images.unsplash.com/photo-1..."
                                          />
+                                         {newMember.imageUrl && (
+                                             <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                                                 <p className="text-xs text-slate-600 mb-2 font-bold">Aperçu de la photo :</p>
+                                                 <img
+                                                     src={newMember.imageUrl}
+                                                     alt="Aperçu"
+                                                     className="w-32 h-32 object-cover rounded-full mx-auto"
+                                                     onError={(e) => {
+                                                         e.currentTarget.style.display = 'none';
+                                                         const parent = e.currentTarget.parentElement;
+                                                         if (parent && !parent.querySelector('.error-message')) {
+                                                             const errorDiv = document.createElement('div');
+                                                             errorDiv.className = 'error-message text-red-600 text-sm bg-red-50 p-3 rounded border border-red-200 mt-2';
+                                                             errorDiv.innerHTML = '⚠️ Image impossible à charger. Vérifiez l\'URL.';
+                                                             parent.appendChild(errorDiv);
+                                                         }
+                                                     }}
+                                                     onLoad={(e) => {
+                                                         const parent = e.currentTarget.parentElement;
+                                                         const errorMsg = parent?.querySelector('.error-message');
+                                                         if (errorMsg) errorMsg.remove();
+                                                     }}
+                                                 />
+                                             </div>
+                                         )}
                                      </div>
 
                                      <div>
