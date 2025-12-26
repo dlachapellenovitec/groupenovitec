@@ -25,24 +25,10 @@ import SecurityQuiz from './components/SecurityQuiz';
 import AISecurityAssistant from './components/AISecurityAssistant';
 import { MessageCircle, X } from 'lucide-react';
 
-// Helper pour obtenir l'URL de l'API dynamiquement
-const getApiUrl = () => {
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
-  }
-
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    return 'http://localhost:3001';
-  }
-
-  // Forcer HTTP car le port 3001 n'a pas de SSL configuré
-  return `http://${window.location.hostname}:3001`;
-};
-
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const API_BASE_URL = getApiUrl();
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
   useEffect(() => {
     const verifyToken = async () => {
@@ -68,7 +54,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
     };
 
     verifyToken();
-  }, [API_BASE_URL]);
+  }, []);
 
   if (isAuthenticated === null) {
     return (
