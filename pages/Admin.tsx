@@ -37,6 +37,17 @@ const Admin: React.FC = () => {
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
 
+  // 2FA States
+  const [twoFAEnabled, setTwoFAEnabled] = useState(false);
+  const [twoFAQRCode, setTwoFAQRCode] = useState('');
+  const [twoFASecret, setTwoFASecret] = useState('');
+  const [twoFAVerifyCode, setTwoFAVerifyCode] = useState('');
+  const [twoFADisablePassword, setTwoFADisablePassword] = useState('');
+  const [twoFALoading, setTwoFALoading] = useState(false);
+  const [twoFAError, setTwoFAError] = useState('');
+  const [twoFASuccess, setTwoFASuccess] = useState('');
+  const [showTwoFASetup, setShowTwoFASetup] = useState(false);
+
   // Database Tab States
   const [dbConfig, setDbConfig] = useState({
       user: 'votre_utilisateur',
@@ -402,6 +413,144 @@ const Admin: React.FC = () => {
       setPasswordError('Erreur de connexion au serveur');
     } finally {
       setPasswordLoading(false);
+    }
+  };
+
+  // Vérifier le statut 2FA au chargement
+  useEffect(() => {
+    const check2FAStatus = async () => {
+      try {
+        const token = localStorage.getItem('auth_token');
+        const baseUrl = getBaseUrl();
+
+        const response = await fetch(`${baseUrl}/api/admin/2fa/status`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          setTwoFAEnabled(data.enabled);
+        }
+      } catch (err) {
+        console.error('Error checking 2FA status:', err);
+      }
+    };
+
+    check2FAStatus();
+  }, []);
+
+  // Configurer 2FA - Générer QR code
+  const handleSetup2FA = async () => {
+    setTwoFALoading(true);
+    setTwoFAError('');
+    setTwoFASuccess('');
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const baseUrl = getBaseUrl();
+
+      const response = await fetch(`${baseUrl}/api/admin/2fa/setup`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setTwoFAQRCode(data.qrCode);
+        setTwoFASecret(data.secret);
+        setShowTwoFASetup(true);
+      } else {
+        setTwoFAError(data.error || 'Erreur lors de la configuration 2FA');
+      }
+    } catch (err) {
+      console.error('2FA setup error:', err);
+      setTwoFAError('Erreur de connexion au serveur');
+    } finally {
+      setTwoFALoading(false);
+    }
+  };
+
+  // Vérifier et activer 2FA
+  const handleVerify2FA = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTwoFALoading(true);
+    setTwoFAError('');
+    setTwoFASuccess('');
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const baseUrl = getBaseUrl();
+
+      const response = await fetch(`${baseUrl}/api/admin/2fa/verify`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ token: twoFAVerifyCode })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setTwoFASuccess('Double authentification activée avec succès!');
+        setTwoFAEnabled(true);
+        setShowTwoFASetup(false);
+        setTwoFAVerifyCode('');
+        setTwoFAQRCode('');
+        setTwoFASecret('');
+        setTimeout(() => setTwoFASuccess(''), 5000);
+      } else {
+        setTwoFAError(data.error || 'Code de vérification invalide');
+      }
+    } catch (err) {
+      console.error('2FA verify error:', err);
+      setTwoFAError('Erreur de connexion au serveur');
+    } finally {
+      setTwoFALoading(false);
+    }
+  };
+
+  // Désactiver 2FA
+  const handleDisable2FA = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTwoFALoading(true);
+    setTwoFAError('');
+    setTwoFASuccess('');
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const baseUrl = getBaseUrl();
+
+      const response = await fetch(`${baseUrl}/api/admin/2fa/disable`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ password: twoFADisablePassword })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setTwoFASuccess('Double authentification désactivée');
+        setTwoFAEnabled(false);
+        setTwoFADisablePassword('');
+        setTimeout(() => setTwoFASuccess(''), 5000);
+      } else {
+        setTwoFAError(data.error || 'Mot de passe incorrect');
+      }
+    } catch (err) {
+      console.error('2FA disable error:', err);
+      setTwoFAError('Erreur de connexion au serveur');
+    } finally {
+      setTwoFALoading(false);
     }
   };
 
@@ -1850,6 +1999,190 @@ const Admin: React.FC = () => {
                              </ul>
                          </div>
                      </div>
+                 </div>
+
+                 {/* Double Authentification (2FA) */}
+                 <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
+                     <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-200">
+                         <div className="p-3 bg-green-100 rounded-xl">
+                             <Shield className="w-6 h-6 text-green-600" />
+                         </div>
+                         <div>
+                             <h2 className="text-2xl font-bold text-slate-900">Double Authentification (2FA)</h2>
+                             <p className="text-sm text-slate-500">Renforcez la sécurité de votre compte avec TOTP</p>
+                         </div>
+                     </div>
+
+                     {/* Status 2FA */}
+                     <div className="mb-6">
+                         <div className={`flex items-center gap-3 p-4 rounded-xl border-2 ${twoFAEnabled ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200'}`}>
+                             <div className={`w-3 h-3 rounded-full ${twoFAEnabled ? 'bg-green-500 animate-pulse' : 'bg-slate-400'}`}></div>
+                             <span className="font-bold text-slate-900">
+                                 Statut : {twoFAEnabled ? (
+                                     <span className="text-green-600">Activé ✓</span>
+                                 ) : (
+                                     <span className="text-slate-500">Désactivé</span>
+                                 )}
+                             </span>
+                         </div>
+                     </div>
+
+                     {!twoFAEnabled ? (
+                         /* Activer 2FA */
+                         !showTwoFASetup ? (
+                             <div>
+                                 <div className="bg-blue-50 border border-blue-200 p-6 rounded-xl mb-6">
+                                     <h3 className="font-bold text-blue-900 mb-2">Pourquoi activer la double authentification ?</h3>
+                                     <ul className="text-sm text-blue-800 space-y-1">
+                                         <li>• Protection contre les accès non autorisés</li>
+                                         <li>• Sécurité renforcée même si votre mot de passe est compromis</li>
+                                         <li>• Compatible avec Google Authenticator, Authy, Microsoft Authenticator</li>
+                                     </ul>
+                                 </div>
+
+                                 <button
+                                     onClick={handleSetup2FA}
+                                     className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-xl transition-colors disabled:bg-slate-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                     disabled={twoFALoading}
+                                 >
+                                     {twoFALoading ? (
+                                         <>
+                                             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                                             <span>Configuration en cours...</span>
+                                         </>
+                                     ) : (
+                                         <>
+                                             <Shield className="w-5 h-5" />
+                                             <span>Activer la double authentification</span>
+                                         </>
+                                     )}
+                                 </button>
+                             </div>
+                         ) : (
+                             /* Setup 2FA - Scanner QR Code */
+                             <div className="space-y-6">
+                                 <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
+                                     <h3 className="font-bold text-slate-900 mb-4">Étape 1 : Scanner le QR code</h3>
+                                     <p className="text-sm text-slate-600 mb-4">
+                                         Utilisez votre application d'authentification (Google Authenticator, Authy, etc.) pour scanner ce code :
+                                     </p>
+                                     <div className="flex justify-center mb-4">
+                                         <img src={twoFAQRCode} alt="QR Code 2FA" className="w-64 h-64 border-4 border-white rounded-xl shadow-lg" />
+                                     </div>
+                                     <div className="bg-slate-900 p-4 rounded-lg">
+                                         <p className="text-xs text-slate-400 mb-1">Clé secrète (configuration manuelle) :</p>
+                                         <p className="font-mono text-sm text-cyan-400 break-all">{twoFASecret}</p>
+                                     </div>
+                                 </div>
+
+                                 <form onSubmit={handleVerify2FA} className="bg-slate-50 p-6 rounded-xl border border-slate-200">
+                                     <h3 className="font-bold text-slate-900 mb-4">Étape 2 : Vérifier le code</h3>
+                                     <p className="text-sm text-slate-600 mb-4">
+                                         Entrez le code à 6 chiffres généré par votre application :
+                                     </p>
+                                     <input
+                                         type="text"
+                                         value={twoFAVerifyCode}
+                                         onChange={(e) => setTwoFAVerifyCode(e.target.value)}
+                                         className="w-full p-4 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-green-500 outline-none font-mono text-center text-2xl tracking-widest mb-4"
+                                         placeholder="000000"
+                                         maxLength={6}
+                                         pattern="[0-9]{6}"
+                                         required
+                                         disabled={twoFALoading}
+                                     />
+                                     <div className="flex gap-3">
+                                         <button
+                                             type="button"
+                                             onClick={() => {
+                                                 setShowTwoFASetup(false);
+                                                 setTwoFAQRCode('');
+                                                 setTwoFASecret('');
+                                                 setTwoFAVerifyCode('');
+                                             }}
+                                             className="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-3 px-6 rounded-xl transition-colors"
+                                             disabled={twoFALoading}
+                                         >
+                                             Annuler
+                                         </button>
+                                         <button
+                                             type="submit"
+                                             className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-xl transition-colors disabled:bg-slate-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                             disabled={twoFALoading}
+                                         >
+                                             {twoFALoading ? (
+                                                 <>
+                                                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                                                     <span>Vérification...</span>
+                                                 </>
+                                             ) : (
+                                                 <>
+                                                     <CheckCircle2 className="w-5 h-5" />
+                                                     <span>Activer 2FA</span>
+                                                 </>
+                                             )}
+                                         </button>
+                                     </div>
+                                 </form>
+                             </div>
+                         )
+                     ) : (
+                         /* Désactiver 2FA */
+                         <form onSubmit={handleDisable2FA} className="space-y-6">
+                             <div className="bg-red-50 border border-red-200 p-6 rounded-xl">
+                                 <h3 className="font-bold text-red-900 mb-2">⚠️ Désactiver la double authentification</h3>
+                                 <p className="text-sm text-red-800">
+                                     Vous êtes sur le point de désactiver la double authentification. Votre compte sera moins sécurisé.
+                                 </p>
+                             </div>
+
+                             <div>
+                                 <label className="block text-sm font-bold text-slate-700 mb-2">
+                                     Entrez votre mot de passe pour confirmer
+                                 </label>
+                                 <input
+                                     type="password"
+                                     value={twoFADisablePassword}
+                                     onChange={(e) => setTwoFADisablePassword(e.target.value)}
+                                     className="w-full p-3 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 outline-none"
+                                     required
+                                     disabled={twoFALoading}
+                                 />
+                             </div>
+
+                             <button
+                                 type="submit"
+                                 className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-8 rounded-xl transition-colors disabled:bg-slate-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                 disabled={twoFALoading}
+                             >
+                                 {twoFALoading ? (
+                                     <>
+                                         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                                         <span>Désactivation...</span>
+                                     </>
+                                 ) : (
+                                     <>
+                                         <XCircle className="w-5 h-5" />
+                                         <span>Désactiver la double authentification</span>
+                                     </>
+                                 )}
+                             </button>
+                         </form>
+                     )}
+
+                     {twoFAError && (
+                         <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 mt-4">
+                             <XCircle className="w-5 h-5 flex-shrink-0" />
+                             <span className="text-sm font-semibold">{twoFAError}</span>
+                         </div>
+                     )}
+
+                     {twoFASuccess && (
+                         <div className="flex items-center gap-2 p-4 bg-green-50 border border-green-200 rounded-xl text-green-700 mt-4">
+                             <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+                             <span className="text-sm font-semibold">{twoFASuccess}</span>
+                         </div>
+                     )}
                  </div>
              </div>
          )}
