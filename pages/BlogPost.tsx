@@ -2,6 +2,7 @@ import React from 'react';
 import { useParams, Link, Navigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { Calendar, User, ArrowLeft, Share2, Facebook, Linkedin, Twitter } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 
 const BlogPost: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -52,22 +53,37 @@ const BlogPost: React.FC = () => {
               
               {/* Content Body */}
               <div className="prose prose-lg prose-slate max-w-none">
-                  <p className="lead text-xl text-slate-600 font-medium mb-8">
+                  <p className="lead text-xl text-slate-600 font-medium mb-8 border-l-4 border-blue-600 pl-6 py-2">
                       {post.excerpt}
                   </p>
-                  <div className="whitespace-pre-wrap text-slate-700 leading-relaxed">
+
+                  <ReactMarkdown
+                      components={{
+                          h1: ({ node, ...props }) => <h1 className="text-4xl font-bold text-slate-900 mb-6 mt-8" {...props} />,
+                          h2: ({ node, ...props }) => <h2 className="text-3xl font-bold text-slate-900 mb-5 mt-8" {...props} />,
+                          h3: ({ node, ...props }) => <h3 className="text-2xl font-bold text-slate-900 mb-4 mt-6" {...props} />,
+                          p: ({ node, ...props }) => <p className="text-slate-700 mb-6 leading-relaxed text-lg" {...props} />,
+                          ul: ({ node, ...props }) => <ul className="list-disc list-outside ml-6 mb-6 space-y-3 text-slate-700" {...props} />,
+                          ol: ({ node, ...props }) => <ol className="list-decimal list-outside ml-6 mb-6 space-y-3 text-slate-700" {...props} />,
+                          li: ({ node, ...props }) => <li className="text-lg leading-relaxed" {...props} />,
+                          strong: ({ node, ...props }) => <strong className="font-bold text-slate-900" {...props} />,
+                          em: ({ node, ...props }) => <em className="italic text-slate-800" {...props} />,
+                          a: ({ node, ...props }) => <a className="text-blue-600 hover:text-blue-700 underline font-medium" {...props} />,
+                          blockquote: ({ node, ...props }) => (
+                              <blockquote className="border-l-4 border-blue-600 pl-6 py-2 italic text-slate-600 bg-blue-50 rounded-r-lg my-6" {...props} />
+                          ),
+                          code: ({ node, inline, ...props }: any) =>
+                              inline
+                                  ? <code className="bg-slate-100 text-red-600 px-2 py-1 rounded text-base font-mono" {...props} />
+                                  : <code className="block bg-slate-900 text-cyan-400 p-6 rounded-xl overflow-x-auto font-mono text-sm my-6 shadow-lg" {...props} />,
+                          img: ({ node, ...props }) => (
+                              <img className="rounded-xl shadow-lg my-8 w-full" {...props} alt={props.alt || ''} />
+                          ),
+                          hr: ({ node, ...props }) => <hr className="my-8 border-slate-200" {...props} />,
+                      }}
+                  >
                       {post.content}
-                  </div>
-                  
-                  {/* Mock content extension since data is short */}
-                  <h3 className="text-2xl font-bold text-slate-900 mt-8 mb-4">Pourquoi est-ce important ?</h3>
-                  <p>
-                    Dans le contexte actuel, la négligence numérique n'est plus une option. 
-                    Les statistiques démontrent que 60% des PME victimes d'une cyberattaque majeure ferment leurs portes dans les 6 mois suivants.
-                  </p>
-                  <p>
-                    Pour approfondir ce sujet, notre équipe recommande une analyse de vos infrastructures actuelles.
-                  </p>
+                  </ReactMarkdown>
               </div>
 
               {/* Share Footer */}

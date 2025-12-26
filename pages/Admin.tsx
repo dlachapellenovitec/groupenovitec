@@ -9,8 +9,8 @@ const Admin: React.FC = () => {
   const {
     posts, jobs, settings, teamMembers, companyStory, clientLogos, strategicPartners, standardPartners,
     systemStatus, incidents,
-    addPost, updatePost, deletePost, addJob, deleteJob, updateSettings,
-    addTeamMember, deleteTeamMember, addClientLogo, deleteClientLogo, updateCompanyStory,
+    addPost, updatePost, deletePost, addJob, updateJob, deleteJob, updateSettings,
+    addTeamMember, updateTeamMember, deleteTeamMember, addClientLogo, deleteClientLogo, updateCompanyStory,
     updateStrategicPartner, addStandardPartner, deleteStandardPartner,
     updateSystemStatus, addIncident, deleteIncident
   } = useData();
@@ -19,6 +19,10 @@ const Admin: React.FC = () => {
   const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'error'>('checking');
   const [editingPost, setEditingPost] = useState<BlogPost | null>(null);
   const [showBlogEditor, setShowBlogEditor] = useState(false);
+  const [editingJob, setEditingJob] = useState<JobPosting | null>(null);
+  const [showJobEditor, setShowJobEditor] = useState(false);
+  const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
+  const [showMemberEditor, setShowMemberEditor] = useState(false);
 
   // Security/Password Change States
   const [passwordForm, setPasswordForm] = useState({
@@ -182,20 +186,78 @@ const Admin: React.FC = () => {
 
   const handleAddJob = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newJob.title && newJob.summary) {
-      addJob(newJob as Omit<JobPosting, 'id'>);
-      setNewJob({ title: '', location: 'Québec', type: 'Temps plein', summary: '' });
-      alert('Poste ajouté !');
+    if (editingJob) {
+      if (newJob.title && newJob.summary) {
+        updateJob(editingJob.id, newJob as Omit<JobPosting, 'id'>);
+        setNewJob({ title: '', location: 'Québec', type: 'Temps plein', summary: '' });
+        setEditingJob(null);
+        setShowJobEditor(false);
+        alert('Poste mis à jour !');
+      }
+    } else {
+      if (newJob.title && newJob.summary) {
+        addJob(newJob as Omit<JobPosting, 'id'>);
+        setNewJob({ title: '', location: 'Québec', type: 'Temps plein', summary: '' });
+        setShowJobEditor(false);
+        alert('Poste ajouté !');
+      }
     }
+  };
+
+  const handleEditJob = (job: JobPosting) => {
+    setEditingJob(job);
+    setNewJob({
+      title: job.title,
+      location: job.location,
+      type: job.type,
+      summary: job.summary
+    });
+    setShowJobEditor(true);
+  };
+
+  const handleCancelJobEdit = () => {
+    setEditingJob(null);
+    setNewJob({ title: '', location: 'Québec', type: 'Temps plein', summary: '' });
+    setShowJobEditor(false);
   };
 
   const handleAddTeamMember = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newMember.name && newMember.role) {
-      addTeamMember(newMember as Omit<TeamMember, 'id'>);
-      setNewMember({ name: '', role: '', bio: '', imageUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800', linkedinUrl: '', quote: '' });
-      alert('Membre ajouté !');
+    if (editingMember) {
+      if (newMember.name && newMember.role && newMember.bio) {
+        updateTeamMember(editingMember.id, newMember as Omit<TeamMember, 'id'>);
+        setNewMember({ name: '', role: '', bio: '', imageUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800', linkedinUrl: '', quote: '' });
+        setEditingMember(null);
+        setShowMemberEditor(false);
+        alert('Membre mis à jour !');
+      }
+    } else {
+      if (newMember.name && newMember.role) {
+        addTeamMember(newMember as Omit<TeamMember, 'id'>);
+        setNewMember({ name: '', role: '', bio: '', imageUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800', linkedinUrl: '', quote: '' });
+        setShowMemberEditor(false);
+        alert('Membre ajouté !');
+      }
     }
+  };
+
+  const handleEditTeamMember = (member: TeamMember) => {
+    setEditingMember(member);
+    setNewMember({
+      name: member.name,
+      role: member.role,
+      bio: member.bio,
+      imageUrl: member.imageUrl,
+      linkedinUrl: member.linkedinUrl,
+      quote: member.quote
+    });
+    setShowMemberEditor(true);
+  };
+
+  const handleCancelMemberEdit = () => {
+    setEditingMember(null);
+    setNewMember({ name: '', role: '', bio: '', imageUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800', linkedinUrl: '', quote: '' });
+    setShowMemberEditor(false);
   };
 
   const handleAddClientLogo = (e: React.FormEvent) => {
@@ -694,55 +756,161 @@ const Admin: React.FC = () => {
 
          {/* CAREERS SECTION */}
          {activeTab === 'careers' && (
-             <div className="grid lg:grid-cols-3 gap-8">
-                 {/* List */}
-                 <div className="lg:col-span-2 space-y-4">
-                     <h2 className="font-bold text-lg text-slate-700 mb-4">Postes ouverts</h2>
-                     {jobs.map(job => (
-                         <div key={job.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center">
-                             <div>
-                                 <h3 className="font-bold text-slate-900">{job.title}</h3>
-                                 <span className="text-xs text-slate-500">{job.location} • {job.type}</span>
-                             </div>
-                             <button onClick={() => deleteJob(job.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Supprimer">
-                                 <Trash2 className="w-5 h-5" />
+             <>
+                 {!showJobEditor ? (
+                     /* Job List View */
+                     <div className="space-y-6">
+                         <div className="flex justify-between items-center mb-6">
+                             <h2 className="font-bold text-xl text-slate-700">Postes ouverts</h2>
+                             <button
+                                 onClick={() => setShowJobEditor(true)}
+                                 className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-colors flex items-center gap-2"
+                             >
+                                 <Plus className="w-5 h-5" />
+                                 Nouveau Poste
                              </button>
                          </div>
-                     ))}
-                 </div>
 
-                 {/* Add Form */}
-                 <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-200 h-fit">
-                     <h2 className="font-bold text-lg text-slate-900 mb-6 flex items-center gap-2">
-                         <Plus className="w-5 h-5" /> Ajouter un poste
-                     </h2>
-                     <form onSubmit={handleAddJob} className="space-y-4">
-                         <div>
-                             <label className="block text-sm font-medium text-slate-700 mb-1">Titre du poste</label>
-                             <input type="text" className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-900" value={newJob.title} onChange={e => setNewJob({...newJob, title: e.target.value})} required placeholder="ex: Technicien N1"/>
-                         </div>
-                         <div className="grid grid-cols-2 gap-4">
-                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Lieu</label>
-                                <input type="text" className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-900" value={newJob.location} onChange={e => setNewJob({...newJob, location: e.target.value})} />
+                         {jobs.length === 0 ? (
+                             <div className="bg-white p-16 text-center rounded-2xl border border-dashed border-slate-300">
+                                 <Briefcase className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                                 <p className="text-slate-400 text-lg font-medium">Aucun poste ouvert</p>
+                                 <p className="text-slate-400 text-sm mt-2">Commencez par créer votre première offre d'emploi</p>
                              </div>
-                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
-                                <select className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-900" value={newJob.type} onChange={e => setNewJob({...newJob, type: e.target.value})}>
-                                    <option>Temps plein</option>
-                                    <option>Temps partiel</option>
-                                    <option>Contractuel</option>
-                                </select>
+                         ) : (
+                             <div className="grid gap-4">
+                                 {jobs.map(job => (
+                                     <div key={job.id} className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+                                         <div className="flex justify-between items-start gap-6">
+                                             <div className="flex-grow">
+                                                 <h3 className="font-bold text-xl text-slate-900 mb-2">{job.title}</h3>
+                                                 <div className="flex items-center gap-4 text-sm text-slate-500 mb-3">
+                                                     <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full font-bold">{job.location}</span>
+                                                     <span>{job.type}</span>
+                                                 </div>
+                                                 <p className="text-sm text-slate-600 line-clamp-2">{job.summary}</p>
+                                             </div>
+                                             <div className="flex gap-2 flex-shrink-0">
+                                                 <button
+                                                     onClick={() => handleEditJob(job)}
+                                                     className="p-3 text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
+                                                     title="Modifier"
+                                                 >
+                                                     <Edit className="w-5 h-5" />
+                                                 </button>
+                                                 <button
+                                                     onClick={() => deleteJob(job.id)}
+                                                     className="p-3 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                                                     title="Supprimer"
+                                                 >
+                                                     <Trash2 className="w-5 h-5" />
+                                                 </button>
+                                             </div>
+                                         </div>
+                                     </div>
+                                 ))}
                              </div>
+                         )}
+                     </div>
+                 ) : (
+                     /* Full-Page Job Editor View */
+                     <div className="max-w-6xl mx-auto">
+                         <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+                             {/* Editor Header */}
+                             <div className="bg-slate-50 border-b border-slate-200 p-6 flex justify-between items-center">
+                                 <div className="flex items-center gap-3">
+                                     {editingJob ? <Edit className="w-6 h-6 text-blue-600" /> : <Plus className="w-6 h-6 text-blue-600" />}
+                                     <div>
+                                         <h2 className="text-2xl font-bold text-slate-900">
+                                             {editingJob ? 'Modifier le poste' : 'Nouveau poste'}
+                                         </h2>
+                                         <p className="text-sm text-slate-500 mt-1">
+                                             {editingJob ? 'Modifiez les détails du poste' : 'Créez une nouvelle offre d\'emploi'}
+                                         </p>
+                                     </div>
+                                 </div>
+                                 <button
+                                     type="button"
+                                     onClick={handleCancelJobEdit}
+                                     className="text-slate-600 hover:text-slate-900 font-bold px-4 py-2 rounded-lg hover:bg-slate-100 transition-colors flex items-center gap-2"
+                                 >
+                                     <ArrowLeft className="w-4 h-4" />
+                                     Retour à la liste
+                                 </button>
+                             </div>
+
+                             {/* Editor Form */}
+                             <form onSubmit={handleAddJob} className="p-8 space-y-6">
+                                 <div className="grid grid-cols-3 gap-6">
+                                     <div className="col-span-3">
+                                         <label className="block text-sm font-bold text-slate-700 mb-2">Titre du poste</label>
+                                         <input
+                                             type="text"
+                                             className="w-full p-3 bg-white border border-slate-300 rounded-xl text-slate-900 text-lg font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                                             value={newJob.title}
+                                             onChange={e => setNewJob({...newJob, title: e.target.value})}
+                                             placeholder="ex: Technicien support N1"
+                                             required
+                                         />
+                                     </div>
+
+                                     <div>
+                                         <label className="block text-sm font-bold text-slate-700 mb-2">Lieu</label>
+                                         <input
+                                             type="text"
+                                             className="w-full p-3 bg-white border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                                             value={newJob.location}
+                                             onChange={e => setNewJob({...newJob, location: e.target.value})}
+                                             placeholder="Québec, QC"
+                                         />
+                                     </div>
+
+                                     <div className="col-span-2">
+                                         <label className="block text-sm font-bold text-slate-700 mb-2">Type de contrat</label>
+                                         <select
+                                             className="w-full p-3 bg-white border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                                             value={newJob.type}
+                                             onChange={e => setNewJob({...newJob, type: e.target.value})}
+                                         >
+                                             <option>Temps plein</option>
+                                             <option>Temps partiel</option>
+                                             <option>Contractuel</option>
+                                         </select>
+                                     </div>
+                                 </div>
+
+                                 {/* Description with Markdown Editor */}
+                                 <div>
+                                     <label className="block text-sm font-bold text-slate-700 mb-3">Description du poste (Markdown)</label>
+                                     <BlogEditor
+                                         value={newJob.summary || ''}
+                                         onChange={(summary) => setNewJob({...newJob, summary})}
+                                         placeholder="Décrivez le poste en détail avec Markdown... Responsabilités, qualifications, avantages..."
+                                     />
+                                 </div>
+
+                                 {/* Action Buttons */}
+                                 <div className="flex justify-end gap-4 pt-6 border-t border-slate-200">
+                                     <button
+                                         type="button"
+                                         onClick={handleCancelJobEdit}
+                                         className="px-6 py-3 text-slate-600 font-bold hover:bg-slate-100 rounded-xl transition-colors"
+                                     >
+                                         Annuler
+                                     </button>
+                                     <button
+                                         type="submit"
+                                         className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition-colors flex items-center gap-2"
+                                     >
+                                         <Save className="w-5 h-5" />
+                                         {editingJob ? 'Mettre à jour le poste' : 'Publier le poste'}
+                                     </button>
+                                 </div>
+                             </form>
                          </div>
-                         <div>
-                             <label className="block text-sm font-medium text-slate-700 mb-1">Description sommaire</label>
-                             <textarea className="w-full p-2 bg-white border border-slate-300 rounded-lg h-32 text-slate-900" value={newJob.summary} onChange={e => setNewJob({...newJob, summary: e.target.value})} required placeholder="Description attrayante..."></textarea>
-                         </div>
-                         <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors">Publier l'offre</button>
-                     </form>
-                 </div>
-             </div>
+                     </div>
+                 )}
+             </>
          )}
 
          {/* STATUS PAGE MANAGEMENT */}
