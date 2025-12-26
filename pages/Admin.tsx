@@ -11,7 +11,7 @@ const Admin: React.FC = () => {
     systemStatus, incidents,
     addPost, updatePost, deletePost, addJob, updateJob, deleteJob, updateSettings,
     addTeamMember, updateTeamMember, deleteTeamMember, addClientLogo, updateClientLogo, deleteClientLogo, updateCompanyStory,
-    updateStrategicPartner, addStandardPartner, deleteStandardPartner,
+    updateStrategicPartner, addStandardPartner, updateStandardPartner, deleteStandardPartner,
     updateSystemStatus, addIncident, deleteIncident
   } = useData();
 

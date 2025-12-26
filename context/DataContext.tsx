@@ -43,7 +43,7 @@ interface DataContextType {
   addClientLogo: (client: Omit<ClientLogo, 'id'>) => Promise<void>; updateClientLogo: (id: string, client: Omit<ClientLogo, 'id'>) => Promise<void>; deleteClientLogo: (id: string) => Promise<void>;
   updateCompanyStory: (story: CompanyStory) => Promise<void>;
   updateStrategicPartner: (id: string, partner: StrategicPartner) => Promise<void>;
-  addStandardPartner: (partner: Omit<StandardPartner, 'id'>) => Promise<void>; deleteStandardPartner: (id: string) => Promise<void>;
+  addStandardPartner: (partner: Omit<StandardPartner, 'id'>) => Promise<void>; updateStandardPartner: (id: string, partner: Omit<StandardPartner, 'id'>) => Promise<void>; deleteStandardPartner: (id: string) => Promise<void>;
   updateSystemStatus: (id: string, status: 'operational' | 'degraded' | 'down', note?: string) => Promise<void>;
   addIncident: (incident: Omit<IncidentItem, 'id'>) => Promise<void>; deleteIncident: (id: string) => Promise<void>;
   refreshAll: () => Promise<void>;
@@ -212,6 +212,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     await fetch(`${API_BASE_URL}/partners/standard`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(partner) });
     await fetchAll();
   };
+  const updateStandardPartner = async (id: string, partner: any) => {
+    await fetch(`${API_BASE_URL}/partners/standard/${id}`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(partner) });
+    await fetchAll();
+  };
   const deleteStandardPartner = async (id: string) => {
     await fetch(`${API_BASE_URL}/partners/standard/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
     await fetchAll();
@@ -235,7 +239,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       systemStatus, incidents, isQuizOpen, openQuiz, closeQuiz,
       addPost, updatePost, deletePost, addJob, updateJob, deleteJob, updateSettings,
       addTeamMember, updateTeamMember, deleteTeamMember, addClientLogo, updateClientLogo, deleteClientLogo, updateCompanyStory,
-      updateStrategicPartner, addStandardPartner, deleteStandardPartner,
+      updateStrategicPartner, addStandardPartner, updateStandardPartner, deleteStandardPartner,
       updateSystemStatus, addIncident, deleteIncident,
       refreshAll: fetchAll
     }}>
