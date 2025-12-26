@@ -10,7 +10,7 @@ const Admin: React.FC = () => {
     posts, jobs, settings, teamMembers, companyStory, clientLogos, strategicPartners, standardPartners,
     systemStatus, incidents,
     addPost, updatePost, deletePost, addJob, updateJob, deleteJob, updateSettings,
-    addTeamMember, updateTeamMember, deleteTeamMember, addClientLogo, deleteClientLogo, updateCompanyStory,
+    addTeamMember, updateTeamMember, deleteTeamMember, addClientLogo, updateClientLogo, deleteClientLogo, updateCompanyStory,
     updateStrategicPartner, addStandardPartner, deleteStandardPartner,
     updateSystemStatus, addIncident, deleteIncident
   } = useData();
@@ -23,6 +23,7 @@ const Admin: React.FC = () => {
   const [showJobEditor, setShowJobEditor] = useState(false);
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
   const [showMemberEditor, setShowMemberEditor] = useState(false);
+  const [editingClient, setEditingClient] = useState<ClientLogo | null>(null);
 
   // Security/Password Change States
   const [passwordForm, setPasswordForm] = useState({
@@ -262,11 +263,33 @@ const Admin: React.FC = () => {
 
   const handleAddClientLogo = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newClient.name && newClient.logoUrl) {
-      addClientLogo(newClient as Omit<ClientLogo, 'id'>);
-      setNewClient({ name: '', logoUrl: '' });
-      alert('Client ajouté !');
+    if (editingClient) {
+      if (newClient.name && newClient.logoUrl) {
+        updateClientLogo(editingClient.id, newClient as Omit<ClientLogo, 'id'>);
+        setNewClient({ name: '', logoUrl: '' });
+        setEditingClient(null);
+        alert('Client mis à jour !');
+      }
+    } else {
+      if (newClient.name && newClient.logoUrl) {
+        addClientLogo(newClient as Omit<ClientLogo, 'id'>);
+        setNewClient({ name: '', logoUrl: '' });
+        alert('Client ajouté !');
+      }
     }
+  };
+
+  const handleEditClient = (client: ClientLogo) => {
+    setEditingClient(client);
+    setNewClient({
+      name: client.name,
+      logoUrl: client.logoUrl
+    });
+  };
+
+  const handleCancelClientEdit = () => {
+    setEditingClient(null);
+    setNewClient({ name: '', logoUrl: '' });
   };
 
   const handleSaveStrategic = (e: React.FormEvent) => {
@@ -1073,9 +1096,14 @@ const Admin: React.FC = () => {
                                                 <span className="text-xs text-slate-500 truncate max-w-[200px] block">{client.logoUrl}</span>
                                             </div>
                                         </div>
-                                        <button onClick={() => deleteClientLogo(client.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Supprimer">
-                                            <Trash2 className="w-5 h-5" />
-                                        </button>
+                                        <div className="flex gap-2">
+                                            <button onClick={() => handleEditClient(client)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Modifier">
+                                                <Edit className="w-5 h-5" />
+                                            </button>
+                                            <button onClick={() => deleteClientLogo(client.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Supprimer">
+                                                <Trash2 className="w-5 h-5" />
+                                            </button>
+                                        </div>
                                     </div>
                                 ))
                             )}
@@ -1084,9 +1112,15 @@ const Admin: React.FC = () => {
                  </div>
 
                  <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-200 h-fit">
-                     <h2 className="font-bold text-lg text-slate-900 mb-6 flex items-center gap-2">
-                         <Plus className="w-5 h-5" /> Ajouter un client
-                     </h2>
+                     <div className="flex justify-between items-center mb-6">
+                         <h2 className="font-bold text-lg text-slate-900 flex items-center gap-2">
+                             {editingClient ? <Edit className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                             {editingClient ? 'Modifier le client' : 'Ajouter un client'}
+                         </h2>
+                         {editingClient && (
+                             <button type="button" onClick={handleCancelClientEdit} className="text-sm text-slate-500 hover:text-slate-700">Annuler</button>
+                         )}
+                     </div>
                      <form onSubmit={handleAddClientLogo} className="space-y-4">
                          <div>
                              <label className="block text-sm font-medium text-slate-700 mb-1">Nom du client</label>
@@ -1097,7 +1131,9 @@ const Admin: React.FC = () => {
                              <input type="text" className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-sm" value={newClient.logoUrl} onChange={e => setNewClient({...newClient, logoUrl: e.target.value})} required placeholder="https://..."/>
                              <p className="text-xs text-slate-500 mt-1">Recommandé : PNG transparent ou SVG. Hauteur env. 80px.</p>
                          </div>
-                         <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors">Ajouter à la liste</button>
+                         <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors">
+                             {editingClient ? 'Mettre à jour' : 'Ajouter à la liste'}
+                         </button>
                      </form>
                  </div>
              </div>
