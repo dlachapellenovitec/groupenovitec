@@ -18,6 +18,7 @@ const Admin: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'blog' | 'careers' | 'about' | 'settings' | 'clients' | 'partners' | 'status' | 'system' | 'security'>('blog');
   const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'error'>('checking');
   const [editingPost, setEditingPost] = useState<BlogPost | null>(null);
+  const [showBlogEditor, setShowBlogEditor] = useState(false);
 
   // Security/Password Change States
   const [passwordForm, setPasswordForm] = useState({
@@ -146,6 +147,7 @@ const Admin: React.FC = () => {
         updatePost(editingPost.id, newPost as Omit<BlogPost, 'id' | 'date'>);
         setNewPost({ title: '', category: 'Cybersécurité', author: 'Admin', content: '', excerpt: '', imageUrl: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=800' });
         setEditingPost(null);
+        setShowBlogEditor(false);
         alert('Article mis à jour !');
       }
     } else {
@@ -153,6 +155,7 @@ const Admin: React.FC = () => {
       if (newPost.title && newPost.content) {
         addPost(newPost as Omit<BlogPost, 'id' | 'date'>);
         setNewPost({ title: '', category: 'Cybersécurité', author: 'Admin', content: '', excerpt: '', imageUrl: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=800' });
+        setShowBlogEditor(false);
         alert('Article ajouté !');
       }
     }
@@ -168,11 +171,13 @@ const Admin: React.FC = () => {
       excerpt: post.excerpt,
       imageUrl: post.imageUrl
     });
+    setShowBlogEditor(true);
   };
 
   const handleCancelEdit = () => {
     setEditingPost(null);
     setNewPost({ title: '', category: 'Cybersécurité', author: 'Admin', content: '', excerpt: '', imageUrl: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=800' });
+    setShowBlogEditor(false);
   };
 
   const handleAddJob = (e: React.FormEvent) => {
@@ -498,88 +503,193 @@ const Admin: React.FC = () => {
 
          {/* BLOG SECTION */}
          {activeTab === 'blog' && (
-             <div className="grid lg:grid-cols-3 gap-8">
-                 {/* List */}
-                 <div className="lg:col-span-2 space-y-4">
-                     <h2 className="font-bold text-lg text-slate-700 mb-4">Articles existants</h2>
-                     {posts.length === 0 ? (
-                         <div className="bg-white p-12 text-center rounded-2xl border border-dashed border-slate-300 text-slate-400">Aucun article trouvé. Vérifiez votre base de données.</div>
-                     ) : (
-                        posts.map(post => (
-                            <div key={post.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center">
-                                <div className="flex items-center gap-4">
-                                    <img src={post.imageUrl} className="w-12 h-12 rounded-lg object-cover bg-slate-200" alt="thumb"/>
-                                    <div>
-                                        <h3 className="font-bold text-slate-900">{post.title}</h3>
-                                        <span className="text-xs text-slate-500">{post.category} • {post.date}</span>
-                                    </div>
-                                </div>
-                                <div className="flex gap-2">
-                                    <button onClick={() => handleEditPost(post)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Modifier">
-                                        <Edit className="w-5 h-5" />
-                                    </button>
-                                    <button onClick={() => deletePost(post.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Supprimer">
-                                        <Trash2 className="w-5 h-5" />
-                                    </button>
-                                </div>
-                            </div>
-                        ))
-                     )}
-                 </div>
+             <>
+                 {!showBlogEditor ? (
+                     /* Article List View */
+                     <div className="space-y-6">
+                         <div className="flex justify-between items-center mb-6">
+                             <h2 className="font-bold text-xl text-slate-700">Articles du blog</h2>
+                             <button
+                                 onClick={() => setShowBlogEditor(true)}
+                                 className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-colors flex items-center gap-2"
+                             >
+                                 <Plus className="w-5 h-5" />
+                                 Nouvel Article
+                             </button>
+                         </div>
 
-                 {/* Add/Edit Form */}
-                 <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-200 h-fit">
-                     <div className="flex justify-between items-center mb-6">
-                         <h2 className="font-bold text-lg text-slate-900 flex items-center gap-2">
-                             {editingPost ? <Edit className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
-                             {editingPost ? 'Modifier l\'article' : 'Ajouter un article'}
-                         </h2>
-                         {editingPost && (
-                             <button type="button" onClick={handleCancelEdit} className="text-sm text-slate-500 hover:text-slate-700">Annuler</button>
+                         {posts.length === 0 ? (
+                             <div className="bg-white p-16 text-center rounded-2xl border border-dashed border-slate-300">
+                                 <FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                                 <p className="text-slate-400 text-lg font-medium">Aucun article trouvé</p>
+                                 <p className="text-slate-400 text-sm mt-2">Commencez par créer votre premier article de blog</p>
+                             </div>
+                         ) : (
+                             <div className="grid gap-4">
+                                 {posts.map(post => (
+                                     <div key={post.id} className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+                                         <div className="flex justify-between items-start gap-6">
+                                             <div className="flex gap-6 flex-grow">
+                                                 <img
+                                                     src={post.imageUrl}
+                                                     className="w-24 h-24 rounded-xl object-cover bg-slate-200 flex-shrink-0"
+                                                     alt={post.title}
+                                                 />
+                                                 <div className="flex-grow">
+                                                     <h3 className="font-bold text-xl text-slate-900 mb-2">{post.title}</h3>
+                                                     <p className="text-sm text-slate-600 mb-3 line-clamp-2">{post.excerpt}</p>
+                                                     <div className="flex items-center gap-4 text-xs text-slate-500">
+                                                         <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full font-bold">{post.category}</span>
+                                                         <span>{post.author}</span>
+                                                         <span>{post.date}</span>
+                                                     </div>
+                                                 </div>
+                                             </div>
+                                             <div className="flex gap-2 flex-shrink-0">
+                                                 <button
+                                                     onClick={() => handleEditPost(post)}
+                                                     className="p-3 text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
+                                                     title="Modifier"
+                                                 >
+                                                     <Edit className="w-5 h-5" />
+                                                 </button>
+                                                 <button
+                                                     onClick={() => deletePost(post.id)}
+                                                     className="p-3 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                                                     title="Supprimer"
+                                                 >
+                                                     <Trash2 className="w-5 h-5" />
+                                                 </button>
+                                             </div>
+                                         </div>
+                                     </div>
+                                 ))}
+                             </div>
                          )}
                      </div>
-                     <form onSubmit={handleAddPost} className="space-y-4">
-                         <div>
-                             <label className="block text-sm font-medium text-slate-700 mb-1">Titre</label>
-                             <input type="text" className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-900" value={newPost.title} onChange={e => setNewPost({...newPost, title: e.target.value})} required />
-                         </div>
-                         <div className="grid grid-cols-2 gap-4">
-                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Catégorie</label>
-                                <select className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-900" value={newPost.category} onChange={e => setNewPost({...newPost, category: e.target.value})}>
-                                    <option>Cybersécurité</option>
-                                    <option>Conformité</option>
-                                    <option>Technologie</option>
-                                    <option>Cloud</option>
-                                </select>
+                 ) : (
+                     /* Full-Page Editor View */
+                     <div className="max-w-7xl mx-auto">
+                         <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+                             {/* Editor Header */}
+                             <div className="bg-slate-50 border-b border-slate-200 p-6 flex justify-between items-center">
+                                 <div className="flex items-center gap-3">
+                                     {editingPost ? <Edit className="w-6 h-6 text-blue-600" /> : <Plus className="w-6 h-6 text-blue-600" />}
+                                     <div>
+                                         <h2 className="text-2xl font-bold text-slate-900">
+                                             {editingPost ? 'Modifier l\'article' : 'Nouvel article'}
+                                         </h2>
+                                         <p className="text-sm text-slate-500 mt-1">
+                                             {editingPost ? 'Apportez vos modifications et enregistrez' : 'Créez un nouvel article pour votre blog'}
+                                         </p>
+                                     </div>
+                                 </div>
+                                 <button
+                                     type="button"
+                                     onClick={handleCancelEdit}
+                                     className="text-slate-600 hover:text-slate-900 font-bold px-4 py-2 rounded-lg hover:bg-slate-100 transition-colors flex items-center gap-2"
+                                 >
+                                     <ArrowLeft className="w-4 h-4" />
+                                     Retour à la liste
+                                 </button>
                              </div>
-                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Auteur</label>
-                                <input type="text" className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-900" value={newPost.author} onChange={e => setNewPost({...newPost, author: e.target.value})} />
-                             </div>
+
+                             {/* Editor Form */}
+                             <form onSubmit={handleAddPost} className="p-8 space-y-6">
+                                 {/* Basic Info Row */}
+                                 <div className="grid grid-cols-2 gap-6">
+                                     <div className="col-span-2">
+                                         <label className="block text-sm font-bold text-slate-700 mb-2">Titre de l'article</label>
+                                         <input
+                                             type="text"
+                                             className="w-full p-3 bg-white border border-slate-300 rounded-xl text-slate-900 text-lg font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                                             value={newPost.title}
+                                             onChange={e => setNewPost({...newPost, title: e.target.value})}
+                                             placeholder="Ex: Les meilleures pratiques en cybersécurité pour 2025"
+                                             required
+                                         />
+                                     </div>
+
+                                     <div>
+                                         <label className="block text-sm font-bold text-slate-700 mb-2">Catégorie</label>
+                                         <select
+                                             className="w-full p-3 bg-white border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                                             value={newPost.category}
+                                             onChange={e => setNewPost({...newPost, category: e.target.value})}
+                                         >
+                                             <option>Cybersécurité</option>
+                                             <option>Conformité</option>
+                                             <option>Technologie</option>
+                                             <option>Cloud</option>
+                                         </select>
+                                     </div>
+
+                                     <div>
+                                         <label className="block text-sm font-bold text-slate-700 mb-2">Auteur</label>
+                                         <input
+                                             type="text"
+                                             className="w-full p-3 bg-white border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                                             value={newPost.author}
+                                             onChange={e => setNewPost({...newPost, author: e.target.value})}
+                                             placeholder="Nom de l'auteur"
+                                         />
+                                     </div>
+
+                                     <div className="col-span-2">
+                                         <label className="block text-sm font-bold text-slate-700 mb-2">URL de l'image de couverture</label>
+                                         <input
+                                             type="text"
+                                             className="w-full p-3 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                                             value={newPost.imageUrl}
+                                             onChange={e => setNewPost({...newPost, imageUrl: e.target.value})}
+                                             placeholder="https://example.com/image.jpg"
+                                         />
+                                     </div>
+
+                                     <div className="col-span-2">
+                                         <label className="block text-sm font-bold text-slate-700 mb-2">Extrait (Résumé court pour l'aperçu)</label>
+                                         <textarea
+                                             className="w-full p-3 bg-white border border-slate-300 rounded-xl h-24 text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                                             value={newPost.excerpt}
+                                             onChange={e => setNewPost({...newPost, excerpt: e.target.value})}
+                                             placeholder="Un bref résumé qui apparaîtra dans la liste des articles..."
+                                             required
+                                         />
+                                     </div>
+                                 </div>
+
+                                 {/* Content Editor - Full Width */}
+                                 <div>
+                                     <label className="block text-sm font-bold text-slate-700 mb-3">Contenu de l'article (Markdown)</label>
+                                     <BlogEditor
+                                         value={newPost.content || ''}
+                                         onChange={(content) => setNewPost({...newPost, content})}
+                                         placeholder="Écrivez votre article en Markdown... Utilisez # pour les titres, ** pour le gras, - pour les listes, etc."
+                                     />
+                                 </div>
+
+                                 {/* Action Buttons */}
+                                 <div className="flex justify-end gap-4 pt-6 border-t border-slate-200">
+                                     <button
+                                         type="button"
+                                         onClick={handleCancelEdit}
+                                         className="px-6 py-3 text-slate-600 font-bold hover:bg-slate-100 rounded-xl transition-colors"
+                                     >
+                                         Annuler
+                                     </button>
+                                     <button
+                                         type="submit"
+                                         className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition-colors flex items-center gap-2"
+                                     >
+                                         <Save className="w-5 h-5" />
+                                         {editingPost ? 'Mettre à jour l\'article' : 'Publier l\'article'}
+                                     </button>
+                                 </div>
+                             </form>
                          </div>
-                         <div>
-                             <label className="block text-sm font-medium text-slate-700 mb-1">URL Image</label>
-                             <input type="text" className="w-full p-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900" value={newPost.imageUrl} onChange={e => setNewPost({...newPost, imageUrl: e.target.value})} />
-                         </div>
-                         <div>
-                             <label className="block text-sm font-medium text-slate-700 mb-1">Extrait (Court)</label>
-                             <textarea className="w-full p-2 bg-white border border-slate-300 rounded-lg h-20 text-slate-900" value={newPost.excerpt} onChange={e => setNewPost({...newPost, excerpt: e.target.value})} required></textarea>
-                         </div>
-                         <div>
-                             <label className="block text-sm font-medium text-slate-700 mb-2">Contenu Complet (Markdown)</label>
-                             <BlogEditor
-                                 value={newPost.content || ''}
-                                 onChange={(content) => setNewPost({...newPost, content})}
-                                 placeholder="Écrivez votre article en Markdown... Utilisez # pour les titres, ** pour le gras, - pour les listes, etc."
-                             />
-                         </div>
-                         <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors">
-                             {editingPost ? 'Mettre à jour' : 'Publier'}
-                         </button>
-                     </form>
-                 </div>
-             </div>
+                     </div>
+                 )}
+             </>
          )}
 
          {/* CAREERS SECTION */}
