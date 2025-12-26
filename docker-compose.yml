@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   # ============================================
   # NGINX PROXY MANAGER
@@ -121,8 +123,6 @@ services:
 
       # CORS
       FRONTEND_URL: ${FRONTEND_URL:-https://votre-domaine.com}
-    ports:
-      - '3001:3001'
     volumes:
       - ./uploads:/app/uploads
       - ./logs:/app/logs

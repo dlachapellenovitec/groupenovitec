@@ -2,30 +2,11 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Shield, Lock, Hexagon, User, AlertCircle } from 'lucide-react';
 
-// Détection automatique de l'URL de l'API
-const getApiUrl = () => {
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
-  }
-
-  // Si on est sur localhost (dev), utiliser localhost:3001
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    return 'http://localhost:3001';
-  }
-
-  // Sinon, utiliser le même host que la page actuelle avec le port 3001
-  // Forcer HTTP car le port 3001 n'a pas de SSL configuré
-  const hostname = window.location.hostname;
-  return `http://${hostname}:3001`;
-};
-
-const API_BASE_URL = getApiUrl();
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const AdminLogin: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [twoFactorCode, setTwoFactorCode] = useState('');
-  const [requires2FA, setRequires2FA] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -36,27 +17,15 @@ const AdminLogin: React.FC = () => {
     setLoading(true);
 
     try {
-      const body: any = { username, password };
-      if (requires2FA) {
-        body.twoFactorCode = twoFactorCode;
-      }
-
       const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ username, password }),
       });
 
       const data = await response.json();
-
-      if (data.requires2FA) {
-        // L'utilisateur a 2FA activé, demander le code
-        setRequires2FA(true);
-        setLoading(false);
-        return;
-      }
 
       if (response.ok && data.success) {
         // Stocker le token JWT dans localStorage
@@ -118,34 +87,10 @@ const AdminLogin: React.FC = () => {
                 className="w-full pl-10 pr-4 py-3 bg-white text-slate-900 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder-slate-400"
                 placeholder="••••••••"
                 required
-                disabled={loading || requires2FA}
+                disabled={loading}
               />
             </div>
           </div>
-
-          {requires2FA && (
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Code d'authentification (2FA)</label>
-              <div className="relative">
-                <Shield className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-                <input
-                  type="text"
-                  value={twoFactorCode}
-                  onChange={(e) => setTwoFactorCode(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-white text-slate-900 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder-slate-400 font-mono text-center tracking-widest"
-                  placeholder="000000"
-                  maxLength={6}
-                  pattern="[0-9]{6}"
-                  required
-                  disabled={loading}
-                  autoFocus
-                />
-              </div>
-              <p className="mt-2 text-xs text-slate-500">
-                Entrez le code à 6 chiffres de votre application d'authentification
-              </p>
-            </div>
-          )}
 
           {error && (
             <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 p-3 rounded-lg border border-red-200">

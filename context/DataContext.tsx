@@ -36,14 +36,14 @@ interface DataContextType {
   posts: BlogPost[]; jobs: JobPosting[]; settings: SiteSettings; teamMembers: TeamMember[]; clientLogos: ClientLogo[]; companyStory: CompanyStory; strategicPartners: StrategicPartner[]; standardPartners: StandardPartner[];
   systemStatus: SystemStatusItem[]; incidents: IncidentItem[];
   isQuizOpen: boolean; openQuiz: () => void; closeQuiz: () => void;
-  addPost: (post: Omit<BlogPost, 'id' | 'date'>) => Promise<void>; updatePost: (id: string, post: Omit<BlogPost, 'id' | 'date'>) => Promise<void>; deletePost: (id: string) => Promise<void>;
-  addJob: (job: Omit<JobPosting, 'id'>) => Promise<void>; updateJob: (id: string, job: Omit<JobPosting, 'id'>) => Promise<void>; deleteJob: (id: string) => Promise<void>;
+  addPost: (post: Omit<BlogPost, 'id' | 'date'>) => Promise<void>; deletePost: (id: string) => Promise<void>;
+  addJob: (job: Omit<JobPosting, 'id'>) => Promise<void>; deleteJob: (id: string) => Promise<void>;
   updateSettings: (newSettings: SiteSettings) => Promise<void>;
-  addTeamMember: (member: Omit<TeamMember, 'id'>) => Promise<void>; updateTeamMember: (id: string, member: Omit<TeamMember, 'id'>) => Promise<void>; deleteTeamMember: (id: string) => Promise<void>;
-  addClientLogo: (client: Omit<ClientLogo, 'id'>) => Promise<void>; updateClientLogo: (id: string, client: Omit<ClientLogo, 'id'>) => Promise<void>; deleteClientLogo: (id: string) => Promise<void>;
+  addTeamMember: (member: Omit<TeamMember, 'id'>) => Promise<void>; deleteTeamMember: (id: string) => Promise<void>;
+  addClientLogo: (client: Omit<ClientLogo, 'id'>) => Promise<void>; deleteClientLogo: (id: string) => Promise<void>;
   updateCompanyStory: (story: CompanyStory) => Promise<void>;
   updateStrategicPartner: (id: string, partner: StrategicPartner) => Promise<void>;
-  addStandardPartner: (partner: Omit<StandardPartner, 'id'>) => Promise<void>; updateStandardPartner: (id: string, partner: Omit<StandardPartner, 'id'>) => Promise<void>; deleteStandardPartner: (id: string) => Promise<void>;
+  addStandardPartner: (partner: Omit<StandardPartner, 'id'>) => Promise<void>; deleteStandardPartner: (id: string) => Promise<void>;
   updateSystemStatus: (id: string, status: 'operational' | 'degraded' | 'down', note?: string) => Promise<void>;
   addIncident: (incident: Omit<IncidentItem, 'id'>) => Promise<void>; deleteIncident: (id: string) => Promise<void>;
   refreshAll: () => Promise<void>;
@@ -114,7 +114,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // Écouter les événements de mise à jour en temps réel
     socket.on('settings:updated', () => fetchAll());
     socket.on('posts:created', () => fetchAll());
-    socket.on('posts:updated', () => fetchAll());
     socket.on('posts:deleted', () => fetchAll());
     socket.on('jobs:created', () => fetchAll());
     socket.on('jobs:deleted', () => fetchAll());
@@ -151,20 +150,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     await fetch(`${API_BASE_URL}/posts`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(post) });
     await fetchAll();
   };
-  const updatePost = async (id: string, post: any) => {
-    await fetch(`${API_BASE_URL}/posts/${id}`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(post) });
-    await fetchAll();
-  };
   const deletePost = async (id: string) => {
     await fetch(`${API_BASE_URL}/posts/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
     await fetchAll();
   };
   const addJob = async (job: any) => {
     await fetch(`${API_BASE_URL}/jobs`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(job) });
-    await fetchAll();
-  };
-  const updateJob = async (id: string, job: any) => {
-    await fetch(`${API_BASE_URL}/jobs/${id}`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(job) });
     await fetchAll();
   };
   const deleteJob = async (id: string) => {
@@ -184,20 +175,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     await fetch(`${API_BASE_URL}/team`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(member) });
     await fetchAll();
   };
-  const updateTeamMember = async (id: string, member: any) => {
-    await fetch(`${API_BASE_URL}/team/${id}`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(member) });
-    await fetchAll();
-  };
   const deleteTeamMember = async (id: string) => {
     await fetch(`${API_BASE_URL}/team/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
     await fetchAll();
   };
   const addClientLogo = async (client: any) => {
     await fetch(`${API_BASE_URL}/clients`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(client) });
-    await fetchAll();
-  };
-  const updateClientLogo = async (id: string, client: any) => {
-    await fetch(`${API_BASE_URL}/clients/${id}`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(client) });
     await fetchAll();
   };
   const deleteClientLogo = async (id: string) => {
@@ -210,10 +193,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
   const addStandardPartner = async (partner: any) => {
     await fetch(`${API_BASE_URL}/partners/standard`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(partner) });
-    await fetchAll();
-  };
-  const updateStandardPartner = async (id: string, partner: any) => {
-    await fetch(`${API_BASE_URL}/partners/standard/${id}`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(partner) });
     await fetchAll();
   };
   const deleteStandardPartner = async (id: string) => {
@@ -234,12 +213,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <DataContext.Provider value={{
+    <DataContext.Provider value={{ 
       posts, jobs, settings, teamMembers, companyStory, clientLogos, strategicPartners, standardPartners,
       systemStatus, incidents, isQuizOpen, openQuiz, closeQuiz,
-      addPost, updatePost, deletePost, addJob, updateJob, deleteJob, updateSettings,
-      addTeamMember, updateTeamMember, deleteTeamMember, addClientLogo, updateClientLogo, deleteClientLogo, updateCompanyStory,
-      updateStrategicPartner, addStandardPartner, updateStandardPartner, deleteStandardPartner,
+      addPost, deletePost, addJob, deleteJob, updateSettings, 
+      addTeamMember, deleteTeamMember, addClientLogo, deleteClientLogo, updateCompanyStory,
+      updateStrategicPartner, addStandardPartner, deleteStandardPartner,
       updateSystemStatus, addIncident, deleteIncident,
       refreshAll: fetchAll
     }}>

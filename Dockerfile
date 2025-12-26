@@ -8,8 +8,8 @@ WORKDIR /app
 # Copier les fichiers package.json du frontend
 COPY package.json package-lock.json ./
 
-# Installer TOUTES les dépendances (y compris devDependencies pour le build)
-RUN npm ci
+# Installer les dépendances
+RUN npm ci --only=production
 
 # Copier tout le code source du frontend
 COPY . .

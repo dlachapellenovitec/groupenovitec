@@ -9,8 +9,6 @@ const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
 const http = require('http');
 const { Server } = require('socket.io');
-const speakeasy = require('speakeasy');
-const QRCode = require('qrcode');
 
 const app = express();
 const server = http.createServer(app);
@@ -36,15 +34,14 @@ app.use(cookieParser());
 const poolConfig = process.env.DATABASE_URL
   ? {
       connectionString: process.env.DATABASE_URL,
-      ssl: false  // Désactiver SSL pour Docker (PostgreSQL Alpine)
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
     }
   : {
-      user: process.env.DB_USER || 'novitec_user',
-      host: process.env.DB_HOST || 'postgres',
+      user: process.env.DB_USER || 'postgres',
+      host: process.env.DB_HOST || 'localhost',
       database: process.env.DB_NAME || 'novitec_db',
-      password: process.env.DB_PASSWORD || 'changeme_db_password',
+      password: process.env.DB_PASSWORD || 'password',
       port: process.env.DB_PORT || 5432,
-      ssl: false
     };
 
 const pool = new Pool(poolConfig);
@@ -83,8 +80,6 @@ const initDb = async () => {
         username TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
         email TEXT,
-        two_factor_secret TEXT,
-        two_factor_enabled BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         last_login TIMESTAMP
       );
@@ -173,14 +168,6 @@ const initDb = async () => {
         severity TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
-
-      CREATE TABLE IF NOT EXISTS company_story (
-        id SERIAL PRIMARY KEY,
-        founding_year TEXT DEFAULT '2018',
-        intro TEXT,
-        mission TEXT,
-        vision TEXT
-      );
     `);
 
     console.log('📦 Structure de la base de données vérifiée');
@@ -247,7 +234,7 @@ app.get('/api/health', async (req, res) => {
 
 // Login
 app.post('/api/auth/login', async (req, res) => {
-  const { username, password, twoFactorCode } = req.body;
+  const { username, password } = req.body;
 
   if (!username || !password) {
     return res.status(400).json({ error: 'Username et password requis' });
@@ -266,29 +253,6 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ error: 'Identifiants incorrects' });
     }
 
-    // Vérifier si 2FA est activé
-    if (user.two_factor_enabled) {
-      if (!twoFactorCode) {
-        // Demander le code 2FA
-        return res.json({
-          requires2FA: true,
-          message: 'Code d\'authentification à deux facteurs requis'
-        });
-      }
-
-      // Vérifier le code TOTP
-      const verified = speakeasy.totp.verify({
-        secret: user.two_factor_secret,
-        encoding: 'base32',
-        token: twoFactorCode,
-        window: 2 // Accepter les codes avec une marge de ±2 intervalles (60 secondes)
-      });
-
-      if (!verified) {
-        return res.status(401).json({ error: 'Code d\'authentification invalide' });
-      }
-    }
-
     // Mettre à jour la dernière connexion
     await pool.query('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1', [user.id]);
 
@@ -305,8 +269,7 @@ app.post('/api/auth/login', async (req, res) => {
       user: {
         id: user.id,
         username: user.username,
-        email: user.email,
-        twoFactorEnabled: user.two_factor_enabled
+        email: user.email
       }
     });
   } catch (err) {
@@ -351,148 +314,6 @@ app.post('/api/auth/change-password', authenticateToken, async (req, res) => {
     res.json({ success: true, message: 'Mot de passe changé avec succès' });
   } catch (err) {
     console.error('Erreur de changement de mot de passe:', err);
-    res.status(500).json({ error: 'Erreur serveur' });
-  }
-});
-
-// ============= ENDPOINTS 2FA =============
-
-// Configurer 2FA - Générer le secret et le QR code
-app.post('/api/admin/2fa/setup', authenticateToken, async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM users WHERE id = $1', [req.user.id]);
-    const user = result.rows[0];
-
-    if (!user) {
-      return res.status(404).json({ error: 'Utilisateur non trouvé' });
-    }
-
-    // Générer un nouveau secret
-    const secret = speakeasy.generateSecret({
-      name: `Groupe Novitec (${user.username})`,
-      issuer: 'Groupe Novitec'
-    });
-
-    // Générer le QR code
-    const qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url);
-
-    // Sauvegarder le secret (mais ne pas encore activer 2FA)
-    await pool.query(
-      'UPDATE users SET two_factor_secret = $1 WHERE id = $2',
-      [secret.base32, user.id]
-    );
-
-    res.json({
-      success: true,
-      secret: secret.base32,
-      qrCode: qrCodeUrl
-    });
-  } catch (err) {
-    console.error('Erreur setup 2FA:', err);
-    res.status(500).json({ error: 'Erreur serveur' });
-  }
-});
-
-// Vérifier et activer 2FA
-app.post('/api/admin/2fa/verify', authenticateToken, async (req, res) => {
-  const { token } = req.body;
-
-  if (!token) {
-    return res.status(400).json({ error: 'Code de vérification requis' });
-  }
-
-  try {
-    const result = await pool.query('SELECT * FROM users WHERE id = $1', [req.user.id]);
-    const user = result.rows[0];
-
-    if (!user || !user.two_factor_secret) {
-      return res.status(400).json({ error: 'Configuration 2FA non trouvée' });
-    }
-
-    // Vérifier le code
-    const verified = speakeasy.totp.verify({
-      secret: user.two_factor_secret,
-      encoding: 'base32',
-      token: token,
-      window: 2
-    });
-
-    if (!verified) {
-      return res.status(401).json({ error: 'Code invalide' });
-    }
-
-    // Activer 2FA
-    await pool.query(
-      'UPDATE users SET two_factor_enabled = TRUE WHERE id = $1',
-      [user.id]
-    );
-
-    res.json({
-      success: true,
-      message: 'Double authentification activée avec succès'
-    });
-  } catch (err) {
-    console.error('Erreur vérification 2FA:', err);
-    res.status(500).json({ error: 'Erreur serveur' });
-  }
-});
-
-// Désactiver 2FA
-app.post('/api/admin/2fa/disable', authenticateToken, async (req, res) => {
-  const { password } = req.body;
-
-  if (!password) {
-    return res.status(400).json({ error: 'Mot de passe requis' });
-  }
-
-  try {
-    const result = await pool.query('SELECT * FROM users WHERE id = $1', [req.user.id]);
-    const user = result.rows[0];
-
-    if (!user) {
-      return res.status(404).json({ error: 'Utilisateur non trouvé' });
-    }
-
-    // Vérifier le mot de passe
-    const validPassword = await bcrypt.compare(password, user.password_hash);
-    if (!validPassword) {
-      return res.status(401).json({ error: 'Mot de passe incorrect' });
-    }
-
-    // Désactiver 2FA et supprimer le secret
-    await pool.query(
-      'UPDATE users SET two_factor_enabled = FALSE, two_factor_secret = NULL WHERE id = $1',
-      [user.id]
-    );
-
-    res.json({
-      success: true,
-      message: 'Double authentification désactivée'
-    });
-  } catch (err) {
-    console.error('Erreur désactivation 2FA:', err);
-    res.status(500).json({ error: 'Erreur serveur' });
-  }
-});
-
-// Obtenir le statut 2FA
-app.get('/api/admin/2fa/status', authenticateToken, async (req, res) => {
-  try {
-    const result = await pool.query(
-      'SELECT two_factor_enabled FROM users WHERE id = $1',
-      [req.user.id]
-    );
-    const user = result.rows[0];
-
-    if (!user) {
-      return res.status(404).json({ error: 'Utilisateur non trouvé' });
-    }
-
-    res.json({
-      enabled: user.two_factor_enabled || false
-    });
-  } catch (err) {
-    console.error('Erreur statut 2FA:', err);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
@@ -578,18 +399,6 @@ app.post('/api/posts', authenticateToken, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.put('/api/posts/:id', authenticateToken, async (req, res) => {
-  try {
-    const { title, excerpt, content, category, author, imageUrl } = req.body;
-    const result = await pool.query(
-      'UPDATE blog_posts SET title = $1, excerpt = $2, content = $3, category = $4, author = $5, image_url = $6 WHERE id = $7 RETURNING *',
-      [title, excerpt, content, category, author, imageUrl, req.params.id]
-    );
-    notifyClients('posts:updated', result.rows[0]);
-    res.json({ success: true, post: result.rows[0] });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
 app.delete('/api/posts/:id', authenticateToken, async (req, res) => {
   try {
     await pool.query('DELETE FROM blog_posts WHERE id = $1', [req.params.id]);
@@ -615,18 +424,6 @@ app.post('/api/jobs', authenticateToken, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.put('/api/jobs/:id', authenticateToken, async (req, res) => {
-  const { title, location, type, summary } = req.body;
-  try {
-    const result = await pool.query(
-      'UPDATE job_postings SET title = $1, location = $2, type = $3, summary = $4 WHERE id = $5 RETURNING *',
-      [title, location, type, summary, req.params.id]
-    );
-    notifyClients('jobs:updated', result.rows[0]);
-    res.json({ success: true, job: result.rows[0] });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
 app.delete('/api/jobs/:id', authenticateToken, async (req, res) => {
   try {
     await pool.query('DELETE FROM job_postings WHERE id = $1', [req.params.id]);
@@ -649,18 +446,6 @@ app.post('/api/team', authenticateToken, async (req, res) => {
     await pool.query('INSERT INTO team_members (name, role, bio, image_url, linkedin_url, quote) VALUES ($1,$2,$3,$4,$5,$6)', [name, role, bio, imageUrl, linkedinUrl, quote]);
     notifyClients('team:created', req.body);
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.put('/api/team/:id', authenticateToken, async (req, res) => {
-  const { name, role, bio, imageUrl, linkedinUrl, quote } = req.body;
-  try {
-    const result = await pool.query(
-      'UPDATE team_members SET name = $1, role = $2, bio = $3, image_url = $4, linkedin_url = $5, quote = $6 WHERE id = $7 RETURNING *',
-      [name, role, bio, imageUrl, linkedinUrl, quote, req.params.id]
-    );
-    notifyClients('team:updated', result.rows[0]);
-    res.json({ success: true, member: result.rows[0] });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -726,18 +511,6 @@ app.post('/api/partners/standard', authenticateToken, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.put('/api/partners/standard/:id', authenticateToken, async (req, res) => {
-  const { name, category, description, logoUrl } = req.body;
-  try {
-    const result = await pool.query(
-      'UPDATE standard_partners SET name = $1, category = $2, description = $3, logo_url = $4 WHERE id = $5 RETURNING *',
-      [name, category, description, logoUrl, req.params.id]
-    );
-    notifyClients('partners:updated', result.rows[0]);
-    res.json({ success: true, partner: result.rows[0] });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
 app.delete('/api/partners/standard/:id', authenticateToken, async (req, res) => {
   try {
     await pool.query('DELETE FROM standard_partners WHERE id = $1', [req.params.id]);
@@ -760,18 +533,6 @@ app.post('/api/clients', authenticateToken, async (req, res) => {
     await pool.query('INSERT INTO client_logos (name, logo_url) VALUES ($1, $2)', [name, logoUrl]);
     notifyClients('clients:created', req.body);
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.put('/api/clients/:id', authenticateToken, async (req, res) => {
-  const { name, logoUrl } = req.body;
-  try {
-    const result = await pool.query(
-      'UPDATE client_logos SET name = $1, logo_url = $2 WHERE id = $3 RETURNING *',
-      [name, logoUrl, req.params.id]
-    );
-    notifyClients('clients:updated', result.rows[0]);
-    res.json({ success: true, client: result.rows[0] });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
