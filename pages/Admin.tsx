@@ -1281,58 +1281,187 @@ const Admin: React.FC = () => {
                  </div>
 
                  {/* 2. Team Management */}
-                 <div className="grid lg:grid-cols-3 gap-8">
-                     <div className="lg:col-span-2 space-y-4">
-                         <h2 className="font-bold text-lg text-slate-700 mb-4">Membres de l'équipe</h2>
-                         {teamMembers.map(member => (
-                             <div key={member.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center">
-                                 <div className="flex items-center gap-4">
-                                     <img src={member.imageUrl} className="w-12 h-12 rounded-full object-cover bg-slate-200" alt="avatar"/>
+                 {!showMemberEditor ? (
+                     /* Team Member List View */
+                     <div className="space-y-6">
+                         <div className="flex justify-between items-center mb-6">
+                             <h2 className="font-bold text-xl text-slate-700">Membres de l'équipe</h2>
+                             <button
+                                 onClick={() => setShowMemberEditor(true)}
+                                 className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-colors flex items-center gap-2"
+                             >
+                                 <Plus className="w-5 h-5" />
+                                 Nouveau Membre
+                             </button>
+                         </div>
+
+                         {teamMembers.length === 0 ? (
+                             <div className="bg-white p-16 text-center rounded-2xl border border-dashed border-slate-300">
+                                 <Users className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                                 <p className="text-slate-400 text-lg font-medium">Aucun membre d'équipe</p>
+                                 <p className="text-slate-400 text-sm mt-2">Commencez par ajouter votre premier membre d'équipe</p>
+                             </div>
+                         ) : (
+                             <div className="grid gap-4">
+                                 {teamMembers.map(member => (
+                                     <div key={member.id} className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+                                         <div className="flex justify-between items-start gap-6">
+                                             <div className="flex gap-6 flex-grow items-center">
+                                                 <img
+                                                     src={member.imageUrl}
+                                                     className="w-20 h-20 rounded-full object-cover bg-slate-200 flex-shrink-0 ring-4 ring-blue-50"
+                                                     alt={member.name}
+                                                 />
+                                                 <div className="flex-grow">
+                                                     <h3 className="font-bold text-xl text-slate-900 mb-1">{member.name}</h3>
+                                                     <p className="text-sm font-bold text-blue-600 uppercase mb-2">{member.role}</p>
+                                                     <p className="text-sm text-slate-600 line-clamp-2">{member.bio}</p>
+                                                     {member.quote && (
+                                                         <p className="text-xs italic text-slate-500 mt-2">"{member.quote}"</p>
+                                                     )}
+                                                 </div>
+                                             </div>
+                                             <div className="flex gap-2 flex-shrink-0">
+                                                 <button
+                                                     onClick={() => handleEditTeamMember(member)}
+                                                     className="p-3 text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
+                                                     title="Modifier"
+                                                 >
+                                                     <Edit className="w-5 h-5" />
+                                                 </button>
+                                                 <button
+                                                     onClick={() => deleteTeamMember(member.id)}
+                                                     className="p-3 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                                                     title="Supprimer"
+                                                 >
+                                                     <Trash2 className="w-5 h-5" />
+                                                 </button>
+                                             </div>
+                                         </div>
+                                     </div>
+                                 ))}
+                             </div>
+                         )}
+                     </div>
+                 ) : (
+                     /* Full-Page Team Member Editor View */
+                     <div className="max-w-6xl mx-auto">
+                         <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+                             {/* Editor Header */}
+                             <div className="bg-slate-50 border-b border-slate-200 p-6 flex justify-between items-center">
+                                 <div className="flex items-center gap-3">
+                                     {editingMember ? <Edit className="w-6 h-6 text-blue-600" /> : <Plus className="w-6 h-6 text-blue-600" />}
                                      <div>
-                                         <h3 className="font-bold text-slate-900">{member.name}</h3>
-                                         <span className="text-xs text-blue-600 font-bold uppercase">{member.role}</span>
+                                         <h2 className="text-2xl font-bold text-slate-900">
+                                             {editingMember ? 'Modifier le membre' : 'Nouveau membre d\'équipe'}
+                                         </h2>
+                                         <p className="text-sm text-slate-500 mt-1">
+                                             {editingMember ? 'Modifiez les informations du membre' : 'Ajoutez un nouveau membre à l\'équipe'}
+                                         </p>
                                      </div>
                                  </div>
-                                 <button onClick={() => deleteTeamMember(member.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Supprimer">
-                                     <Trash2 className="w-5 h-5" />
+                                 <button
+                                     type="button"
+                                     onClick={handleCancelMemberEdit}
+                                     className="text-slate-600 hover:text-slate-900 font-bold px-4 py-2 rounded-lg hover:bg-slate-100 transition-colors flex items-center gap-2"
+                                 >
+                                     <ArrowLeft className="w-4 h-4" />
+                                     Retour à la liste
                                  </button>
                              </div>
-                         ))}
-                     </div>
 
-                     <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-200 h-fit">
-                         <h2 className="font-bold text-lg text-slate-900 mb-6 flex items-center gap-2">
-                             <Plus className="w-5 h-5" /> Ajouter un membre
-                         </h2>
-                         <form onSubmit={handleAddTeamMember} className="space-y-4">
-                             <div>
-                                 <label className="block text-sm font-medium text-slate-700 mb-1">Nom Complet</label>
-                                 <input type="text" className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-900" value={newMember.name} onChange={e => setNewMember({...newMember, name: e.target.value})} required />
-                             </div>
-                             <div>
-                                 <label className="block text-sm font-medium text-slate-700 mb-1">Rôle</label>
-                                 <input type="text" className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-900" value={newMember.role} onChange={e => setNewMember({...newMember, role: e.target.value})} required placeholder="ex: Président" />
-                             </div>
-                             <div>
-                                 <label className="block text-sm font-medium text-slate-700 mb-1">Photo URL</label>
-                                 <input type="text" className="w-full p-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900" value={newMember.imageUrl} onChange={e => setNewMember({...newMember, imageUrl: e.target.value})} />
-                             </div>
-                             <div>
-                                 <label className="block text-sm font-medium text-slate-700 mb-1">Bio</label>
-                                 <textarea className="w-full p-2 bg-white border border-slate-300 rounded-lg h-24 text-slate-900" value={newMember.bio} onChange={e => setNewMember({...newMember, bio: e.target.value})} required></textarea>
-                             </div>
-                             <div>
-                                 <label className="block text-sm font-medium text-slate-700 mb-1">Citation (Optionnel)</label>
-                                 <input type="text" className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-900" value={newMember.quote} onChange={e => setNewMember({...newMember, quote: e.target.value})} />
-                             </div>
-                             <div>
-                                 <label className="block text-sm font-medium text-slate-700 mb-1">LinkedIn URL (Optionnel)</label>
-                                 <input type="text" className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-900" value={newMember.linkedinUrl} onChange={e => setNewMember({...newMember, linkedinUrl: e.target.value})} />
-                             </div>
-                             <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors">Ajouter</button>
-                         </form>
+                             {/* Editor Form */}
+                             <form onSubmit={handleAddTeamMember} className="p-8 space-y-6">
+                                 <div className="grid grid-cols-2 gap-6">
+                                     <div>
+                                         <label className="block text-sm font-bold text-slate-700 mb-2">Nom complet</label>
+                                         <input
+                                             type="text"
+                                             className="w-full p-3 bg-white border border-slate-300 rounded-xl text-slate-900 text-lg font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                                             value={newMember.name}
+                                             onChange={e => setNewMember({...newMember, name: e.target.value})}
+                                             placeholder="ex: Jean Tremblay"
+                                             required
+                                         />
+                                     </div>
+
+                                     <div>
+                                         <label className="block text-sm font-bold text-slate-700 mb-2">Rôle / Titre</label>
+                                         <input
+                                             type="text"
+                                             className="w-full p-3 bg-white border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                                             value={newMember.role}
+                                             onChange={e => setNewMember({...newMember, role: e.target.value})}
+                                             placeholder="ex: Président"
+                                             required
+                                         />
+                                     </div>
+
+                                     <div>
+                                         <label className="block text-sm font-bold text-slate-700 mb-2">Photo URL</label>
+                                         <input
+                                             type="text"
+                                             className="w-full p-3 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                                             value={newMember.imageUrl}
+                                             onChange={e => setNewMember({...newMember, imageUrl: e.target.value})}
+                                             placeholder="https://example.com/photo.jpg"
+                                         />
+                                     </div>
+
+                                     <div>
+                                         <label className="block text-sm font-bold text-slate-700 mb-2">LinkedIn URL (Optionnel)</label>
+                                         <input
+                                             type="text"
+                                             className="w-full p-3 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                                             value={newMember.linkedinUrl}
+                                             onChange={e => setNewMember({...newMember, linkedinUrl: e.target.value})}
+                                             placeholder="https://linkedin.com/in/..."
+                                         />
+                                     </div>
+
+                                     <div className="col-span-2">
+                                         <label className="block text-sm font-bold text-slate-700 mb-2">Citation / Devise (Optionnel)</label>
+                                         <input
+                                             type="text"
+                                             className="w-full p-3 bg-white border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                                             value={newMember.quote}
+                                             onChange={e => setNewMember({...newMember, quote: e.target.value})}
+                                             placeholder="Une citation inspirante..."
+                                         />
+                                     </div>
+                                 </div>
+
+                                 {/* Bio with Markdown Editor */}
+                                 <div>
+                                     <label className="block text-sm font-bold text-slate-700 mb-3">Biographie (Markdown)</label>
+                                     <BlogEditor
+                                         value={newMember.bio || ''}
+                                         onChange={(bio) => setNewMember({...newMember, bio})}
+                                         placeholder="Rédigez la biographie du membre avec Markdown... Parcours, expertise, réalisations..."
+                                     />
+                                 </div>
+
+                                 {/* Action Buttons */}
+                                 <div className="flex justify-end gap-4 pt-6 border-t border-slate-200">
+                                     <button
+                                         type="button"
+                                         onClick={handleCancelMemberEdit}
+                                         className="px-6 py-3 text-slate-600 font-bold hover:bg-slate-100 rounded-xl transition-colors"
+                                     >
+                                         Annuler
+                                     </button>
+                                     <button
+                                         type="submit"
+                                         className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition-colors flex items-center gap-2"
+                                     >
+                                         <Save className="w-5 h-5" />
+                                         {editingMember ? 'Mettre à jour le membre' : 'Ajouter le membre'}
+                                     </button>
+                                 </div>
+                             </form>
+                         </div>
                      </div>
-                 </div>
+                 )}
              </div>
          )}
 
