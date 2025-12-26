@@ -24,6 +24,8 @@ const Admin: React.FC = () => {
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
   const [showMemberEditor, setShowMemberEditor] = useState(false);
   const [editingClient, setEditingClient] = useState<ClientLogo | null>(null);
+  const [editingStandardPartner, setEditingStandardPartner] = useState<StandardPartner | null>(null);
+  const [showPartnerEditor, setShowPartnerEditor] = useState(false);
 
   // Security/Password Change States
   const [passwordForm, setPasswordForm] = useState({
@@ -303,11 +305,39 @@ const Admin: React.FC = () => {
 
   const handleAddStandardPartner = (e: React.FormEvent) => {
       e.preventDefault();
-      if(newStandardPartner.name && newStandardPartner.logoUrl) {
-          addStandardPartner(newStandardPartner as Omit<StandardPartner, 'id'>);
-          setNewStandardPartner({ name: '', category: 'Infrastructure & Cloud', description: '', logoUrl: '' });
-          alert('Partenaire ajouté !');
+      if (editingStandardPartner) {
+          if(newStandardPartner.name && newStandardPartner.logoUrl) {
+              updateStandardPartner(editingStandardPartner.id, newStandardPartner as Omit<StandardPartner, 'id'>);
+              setNewStandardPartner({ name: '', category: 'Infrastructure & Cloud', description: '', logoUrl: '' });
+              setEditingStandardPartner(null);
+              setShowPartnerEditor(false);
+              alert('Partenaire mis à jour !');
+          }
+      } else {
+          if(newStandardPartner.name && newStandardPartner.logoUrl) {
+              addStandardPartner(newStandardPartner as Omit<StandardPartner, 'id'>);
+              setNewStandardPartner({ name: '', category: 'Infrastructure & Cloud', description: '', logoUrl: '' });
+              setShowPartnerEditor(false);
+              alert('Partenaire ajouté !');
+          }
       }
+  };
+
+  const handleEditStandardPartner = (partner: StandardPartner) => {
+      setEditingStandardPartner(partner);
+      setNewStandardPartner({
+          name: partner.name,
+          category: partner.category,
+          description: partner.description,
+          logoUrl: partner.logoUrl
+      });
+      setShowPartnerEditor(true);
+  };
+
+  const handleCancelPartnerEdit = () => {
+      setEditingStandardPartner(null);
+      setNewStandardPartner({ name: '', category: 'Infrastructure & Cloud', description: '', logoUrl: '' });
+      setShowPartnerEditor(false);
   };
 
   const handleAddIncident = (e: React.FormEvent) => {
@@ -1218,29 +1248,44 @@ const Admin: React.FC = () => {
                  </div>
 
                  {/* Section 2: Standard Partners */}
-                 <div className="grid lg:grid-cols-3 gap-8">
-                     <div className="lg:col-span-2 space-y-6">
-                         <div className="bg-slate-50 border-l-4 border-slate-500 p-4 rounded-r-xl">
-                             <h2 className="text-xl font-bold text-slate-900">2. Partenaires Technologiques</h2>
-                             <p className="text-slate-500 text-sm mt-1">Liste des partenaires affichés par catégorie.</p>
+                 {!showPartnerEditor ? (
+                     /* Partner List View */
+                     <div className="space-y-6">
+                         <div className="flex justify-between items-center">
+                             <div>
+                                 <h2 className="text-xl font-bold text-slate-900">2. Partenaires Technologiques</h2>
+                                 <p className="text-slate-500 text-sm mt-1">Liste des partenaires affichés par catégorie</p>
+                             </div>
+                             <button
+                                 onClick={() => setShowPartnerEditor(true)}
+                                 className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-colors flex items-center gap-2"
+                             >
+                                 <Plus className="w-5 h-5" />
+                                 Nouveau Partenaire
+                             </button>
                          </div>
-                         
+
                          {["Infrastructure & Cloud", "Cybersécurité & Outils MSP", "Matériel & Périphériques"].map(cat => (
                              <div key={cat} className="mb-8">
-                                 <h3 className="font-bold text-slate-700 border-b border-slate-200 pb-2 mb-4 uppercase text-sm tracking-wider">{cat}</h3>
-                                 <div className="space-y-2">
+                                 <h3 className="font-bold text-slate-700 border-b-2 border-blue-600 pb-2 mb-4 uppercase text-sm tracking-wider">{cat}</h3>
+                                 <div className="space-y-3">
                                      {standardPartners.filter(p => p.category === cat).map(p => (
-                                         <div key={p.id} className="bg-white p-3 rounded-lg border border-slate-200 flex justify-between items-center shadow-sm">
-                                             <div className="flex items-center gap-3">
-                                                 <img src={p.logoUrl} alt={p.name} className="w-8 h-8 object-contain bg-slate-50 rounded p-1"/>
+                                         <div key={p.id} className="bg-white p-4 rounded-xl border border-slate-200 flex justify-between items-start shadow-sm hover:shadow-md transition-shadow">
+                                             <div className="flex items-center gap-4">
+                                                 <img src={p.logoUrl} alt={p.name} className="w-12 h-12 object-contain bg-slate-50 rounded-lg p-2 border border-slate-200"/>
                                                  <div>
-                                                     <p className="font-bold text-sm text-slate-800">{p.name}</p>
-                                                     <p className="text-xs text-slate-400 truncate max-w-xs">{p.description}</p>
+                                                     <p className="font-bold text-base text-slate-900">{p.name}</p>
+                                                     <p className="text-sm text-slate-600 line-clamp-2 max-w-md">{p.description}</p>
                                                  </div>
                                              </div>
-                                             <button onClick={() => deleteStandardPartner(p.id)} className="p-2 text-red-400 hover:bg-red-50 rounded-lg hover:text-red-600">
-                                                 <Trash2 className="w-4 h-4" />
-                                             </button>
+                                             <div className="flex gap-2">
+                                                 <button onClick={() => handleEditStandardPartner(p)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Modifier">
+                                                     <Edit className="w-5 h-5" />
+                                                 </button>
+                                                 <button onClick={() => deleteStandardPartner(p.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Supprimer">
+                                                     <Trash2 className="w-5 h-5" />
+                                                 </button>
+                                             </div>
                                          </div>
                                      ))}
                                      {standardPartners.filter(p => p.category === cat).length === 0 && (
@@ -1250,36 +1295,105 @@ const Admin: React.FC = () => {
                              </div>
                          ))}
                      </div>
+                 ) : (
+                     /* Full-Page Partner Editor View */
+                     <div className="max-w-6xl mx-auto">
+                         <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+                             {/* Editor Header */}
+                             <div className="bg-slate-50 border-b border-slate-200 p-6 flex justify-between items-center">
+                                 <div className="flex items-center gap-3">
+                                     {editingStandardPartner ? <Edit className="w-6 h-6 text-blue-600" /> : <Plus className="w-6 h-6 text-blue-600" />}
+                                     <div>
+                                         <h2 className="text-2xl font-bold text-slate-900">
+                                             {editingStandardPartner ? 'Modifier le partenaire' : 'Nouveau partenaire'}
+                                         </h2>
+                                         <p className="text-sm text-slate-500 mt-1">
+                                             {editingStandardPartner ? 'Modifiez les informations du partenaire' : 'Ajoutez un nouveau partenaire technologique'}
+                                         </p>
+                                     </div>
+                                 </div>
+                                 <button
+                                     type="button"
+                                     onClick={handleCancelPartnerEdit}
+                                     className="text-slate-600 hover:text-slate-900 font-bold px-4 py-2 rounded-lg hover:bg-slate-100 transition-colors flex items-center gap-2"
+                                 >
+                                     <ArrowLeft className="w-4 h-4" />
+                                     Retour à la liste
+                                 </button>
+                             </div>
 
-                     <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-200 h-fit">
-                         <h2 className="font-bold text-lg text-slate-900 mb-6 flex items-center gap-2">
-                             <Plus className="w-5 h-5" /> Ajouter un partenaire
-                         </h2>
-                         <form onSubmit={handleAddStandardPartner} className="space-y-4">
-                             <div>
-                                 <label className="block text-sm font-medium text-slate-700 mb-1">Nom</label>
-                                 <input type="text" className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-900" value={newStandardPartner.name} onChange={e => setNewStandardPartner({...newStandardPartner, name: e.target.value})} required />
-                             </div>
-                             <div>
-                                 <label className="block text-sm font-medium text-slate-700 mb-1">Catégorie</label>
-                                 <select className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-900" value={newStandardPartner.category} onChange={e => setNewStandardPartner({...newStandardPartner, category: e.target.value as any})}>
-                                     <option>Infrastructure & Cloud</option>
-                                     <option>Cybersécurité & Outils MSP</option>
-                                     <option>Matériel & Périphériques</option>
-                                 </select>
-                             </div>
-                             <div>
-                                 <label className="block text-sm font-medium text-slate-700 mb-1">URL Logo</label>
-                                 <input type="text" className="w-full p-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900" value={newStandardPartner.logoUrl} onChange={e => setNewStandardPartner({...newStandardPartner, logoUrl: e.target.value})} placeholder="https://..." required/>
-                             </div>
-                             <div>
-                                 <label className="block text-sm font-medium text-slate-700 mb-1">Description courte</label>
-                                 <textarea className="w-full p-2 bg-white border border-slate-300 rounded-lg h-24 text-slate-900" value={newStandardPartner.description} onChange={e => setNewStandardPartner({...newStandardPartner, description: e.target.value})} required></textarea>
-                             </div>
-                             <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors">Ajouter</button>
-                         </form>
+                             {/* Editor Form */}
+                             <form onSubmit={handleAddStandardPartner} className="p-8 space-y-6">
+                                 <div className="grid grid-cols-2 gap-6">
+                                     <div className="col-span-2">
+                                         <label className="block text-sm font-bold text-slate-700 mb-2">Nom du partenaire</label>
+                                         <input
+                                             type="text"
+                                             className="w-full p-3 bg-white border border-slate-300 rounded-xl text-slate-900 text-lg font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                                             value={newStandardPartner.name}
+                                             onChange={e => setNewStandardPartner({...newStandardPartner, name: e.target.value})}
+                                             placeholder="ex: Microsoft"
+                                             required
+                                         />
+                                     </div>
+
+                                     <div>
+                                         <label className="block text-sm font-bold text-slate-700 mb-2">Catégorie</label>
+                                         <select
+                                             className="w-full p-3 bg-white border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                                             value={newStandardPartner.category}
+                                             onChange={e => setNewStandardPartner({...newStandardPartner, category: e.target.value as any})}
+                                         >
+                                             <option>Infrastructure & Cloud</option>
+                                             <option>Cybersécurité & Outils MSP</option>
+                                             <option>Matériel & Périphériques</option>
+                                         </select>
+                                     </div>
+
+                                     <div>
+                                         <label className="block text-sm font-bold text-slate-700 mb-2">URL du logo</label>
+                                         <input
+                                             type="text"
+                                             className="w-full p-3 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                                             value={newStandardPartner.logoUrl}
+                                             onChange={e => setNewStandardPartner({...newStandardPartner, logoUrl: e.target.value})}
+                                             placeholder="https://example.com/logo.png"
+                                             required
+                                         />
+                                     </div>
+                                 </div>
+
+                                 {/* Description with Markdown Editor */}
+                                 <div>
+                                     <label className="block text-sm font-bold text-slate-700 mb-3">Description du partenaire (Markdown)</label>
+                                     <BlogEditor
+                                         value={newStandardPartner.description || ''}
+                                         onChange={(description) => setNewStandardPartner({...newStandardPartner, description})}
+                                         placeholder="Décrivez le partenaire en Markdown... Produits, services, expertise..."
+                                     />
+                                 </div>
+
+                                 {/* Action Buttons */}
+                                 <div className="flex justify-end gap-4 pt-6 border-t border-slate-200">
+                                     <button
+                                         type="button"
+                                         onClick={handleCancelPartnerEdit}
+                                         className="px-6 py-3 text-slate-600 font-bold hover:bg-slate-100 rounded-xl transition-colors"
+                                     >
+                                         Annuler
+                                     </button>
+                                     <button
+                                         type="submit"
+                                         className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition-colors flex items-center gap-2"
+                                     >
+                                         <Save className="w-5 h-5" />
+                                         {editingStandardPartner ? 'Mettre à jour le partenaire' : 'Ajouter le partenaire'}
+                                     </button>
+                                 </div>
+                             </form>
+                         </div>
                      </div>
-                 </div>
+                 )}
 
              </div>
          )}
