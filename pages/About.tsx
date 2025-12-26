@@ -158,12 +158,15 @@ const About: React.FC = () => {
             <div className="grid md:grid-cols-3 gap-8 lg:gap-12">
               {teamMembers.map((member) => (
                 <div key={member.id} className="group bg-white rounded-2xl overflow-hidden shadow-lg border border-slate-100 hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
-                    <div className="h-80 overflow-hidden bg-slate-200 relative">
-                      <img 
-                          src={member.imageUrl} 
-                          alt={member.name} 
+                    <div className="h-80 overflow-hidden bg-slate-200 relative flex items-center justify-center">
+                      <img
+                          src={member.imageUrl || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=800'}
+                          alt={member.name}
                           loading="lazy"
                           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                          onError={(e) => {
+                            e.currentTarget.src = 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=800';
+                          }}
                       />
                       {member.quote && (
                         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-6">

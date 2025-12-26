@@ -18,7 +18,14 @@ const BlogPost: React.FC = () => {
       {/* Header */}
       <div className="bg-slate-900 text-white pt-32 pb-20 relative">
          <div className="absolute inset-0 bg-slate-900">
-             <img src={post.imageUrl} className="w-full h-full object-cover opacity-20 blur-sm" alt="Background" />
+             <img
+               src={post.imageUrl || 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&q=80&w=800'}
+               className="w-full h-full object-cover opacity-20 blur-sm"
+               alt="Background"
+               onError={(e) => {
+                 e.currentTarget.src = 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&q=80&w=800';
+               }}
+             />
              <div className="absolute inset-0 bg-gradient-to-t from-slate-900 to-transparent"></div>
          </div>
          <div className="max-w-4xl mx-auto px-4 relative z-10">

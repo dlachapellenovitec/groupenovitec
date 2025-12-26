@@ -646,9 +646,12 @@ const Admin: React.FC = () => {
                                          <div className="flex justify-between items-start gap-6">
                                              <div className="flex gap-6 flex-grow">
                                                  <img
-                                                     src={post.imageUrl}
+                                                     src={post.imageUrl || 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&q=80&w=400'}
                                                      className="w-24 h-24 rounded-xl object-cover bg-slate-200 flex-shrink-0"
                                                      alt={post.title}
+                                                     onError={(e) => {
+                                                       e.currentTarget.src = 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&q=80&w=400';
+                                                     }}
                                                  />
                                                  <div className="flex-grow">
                                                      <h3 className="font-bold text-xl text-slate-900 mb-2">{post.title}</h3>
@@ -1458,9 +1461,12 @@ const Admin: React.FC = () => {
                                          <div className="flex justify-between items-start gap-6">
                                              <div className="flex gap-6 flex-grow items-center">
                                                  <img
-                                                     src={member.imageUrl}
+                                                     src={member.imageUrl || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=400'}
                                                      className="w-20 h-20 rounded-full object-cover bg-slate-200 flex-shrink-0 ring-4 ring-blue-50"
                                                      alt={member.name}
+                                                     onError={(e) => {
+                                                       e.currentTarget.src = 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=400';
+                                                     }}
                                                  />
                                                  <div className="flex-grow">
                                                      <h3 className="font-bold text-xl text-slate-900 mb-1">{member.name}</h3>

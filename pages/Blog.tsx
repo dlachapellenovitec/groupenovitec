@@ -24,12 +24,15 @@ const Blog: React.FC = () => {
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           {posts.map((post) => (
             <article key={post.id} className="bg-white rounded-2xl shadow-xl overflow-hidden hover:-translate-y-2 transition-transform duration-300 flex flex-col h-full border border-slate-100">
-              <div className="h-48 overflow-hidden relative group">
-                <img 
-                  src={post.imageUrl} 
-                  alt={post.title} 
+              <div className="h-48 overflow-hidden relative group bg-slate-200 flex items-center justify-center">
+                <img
+                  src={post.imageUrl || 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&q=80&w=800'}
+                  alt={post.title}
                   loading="lazy"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  onError={(e) => {
+                    e.currentTarget.src = 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&q=80&w=800';
+                  }}
                 />
                 <div className="absolute top-4 left-4">
                   <span className="bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 shadow-lg">
