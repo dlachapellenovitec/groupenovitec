@@ -40,7 +40,7 @@ interface DataContextType {
   addJob: (job: Omit<JobPosting, 'id'>) => Promise<void>; updateJob: (id: string, job: Omit<JobPosting, 'id'>) => Promise<void>; deleteJob: (id: string) => Promise<void>;
   updateSettings: (newSettings: SiteSettings) => Promise<void>;
   addTeamMember: (member: Omit<TeamMember, 'id'>) => Promise<void>; updateTeamMember: (id: string, member: Omit<TeamMember, 'id'>) => Promise<void>; deleteTeamMember: (id: string) => Promise<void>;
-  addClientLogo: (client: Omit<ClientLogo, 'id'>) => Promise<void>; deleteClientLogo: (id: string) => Promise<void>;
+  addClientLogo: (client: Omit<ClientLogo, 'id'>) => Promise<void>; updateClientLogo: (id: string, client: Omit<ClientLogo, 'id'>) => Promise<void>; deleteClientLogo: (id: string) => Promise<void>;
   updateCompanyStory: (story: CompanyStory) => Promise<void>;
   updateStrategicPartner: (id: string, partner: StrategicPartner) => Promise<void>;
   addStandardPartner: (partner: Omit<StandardPartner, 'id'>) => Promise<void>; deleteStandardPartner: (id: string) => Promise<void>;
@@ -196,6 +196,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     await fetch(`${API_BASE_URL}/clients`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(client) });
     await fetchAll();
   };
+  const updateClientLogo = async (id: string, client: any) => {
+    await fetch(`${API_BASE_URL}/clients/${id}`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(client) });
+    await fetchAll();
+  };
   const deleteClientLogo = async (id: string) => {
     await fetch(`${API_BASE_URL}/clients/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
     await fetchAll();
@@ -230,7 +234,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       posts, jobs, settings, teamMembers, companyStory, clientLogos, strategicPartners, standardPartners,
       systemStatus, incidents, isQuizOpen, openQuiz, closeQuiz,
       addPost, updatePost, deletePost, addJob, updateJob, deleteJob, updateSettings,
-      addTeamMember, updateTeamMember, deleteTeamMember, addClientLogo, deleteClientLogo, updateCompanyStory,
+      addTeamMember, updateTeamMember, deleteTeamMember, addClientLogo, updateClientLogo, deleteClientLogo, updateCompanyStory,
       updateStrategicPartner, addStandardPartner, deleteStandardPartner,
       updateSystemStatus, addIncident, deleteIncident,
       refreshAll: fetchAll
