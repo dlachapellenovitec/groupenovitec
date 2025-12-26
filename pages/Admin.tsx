@@ -3,19 +3,29 @@ import React, { useState, useEffect } from 'react';
 import { useData, BlogPost, JobPosting, SiteSettings, TeamMember, CompanyStory, ClientLogo, StrategicPartner, StandardPartner, IncidentItem } from '../context/DataContext';
 import { Link } from 'react-router-dom';
 import { LayoutDashboard, FileText, Briefcase, Plus, Trash2, Shield, ArrowLeft, Settings, Save, AlertTriangle, Users, Building, Handshake, Edit, Activity, CheckCircle2, XCircle, Database, Server, Key, Copy, Check } from 'lucide-react';
+import BlogEditor from '../components/BlogEditor';
 
 const Admin: React.FC = () => {
-  const { 
+  const {
     posts, jobs, settings, teamMembers, companyStory, clientLogos, strategicPartners, standardPartners,
     systemStatus, incidents,
-    addPost, deletePost, addJob, deleteJob, updateSettings, 
-    addTeamMember, deleteTeamMember, addClientLogo, deleteClientLogo, updateCompanyStory,
-    updateStrategicPartner, addStandardPartner, deleteStandardPartner,
+    addPost, updatePost, deletePost, addJob, updateJob, deleteJob, updateSettings,
+    addTeamMember, updateTeamMember, deleteTeamMember, addClientLogo, updateClientLogo, deleteClientLogo, updateCompanyStory,
+    updateStrategicPartner, addStandardPartner, updateStandardPartner, deleteStandardPartner,
     updateSystemStatus, addIncident, deleteIncident
   } = useData();
-  
+
   const [activeTab, setActiveTab] = useState<'blog' | 'careers' | 'about' | 'settings' | 'clients' | 'partners' | 'status' | 'system' | 'security'>('blog');
   const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'error'>('checking');
+  const [editingPost, setEditingPost] = useState<BlogPost | null>(null);
+  const [showBlogEditor, setShowBlogEditor] = useState(false);
+  const [editingJob, setEditingJob] = useState<JobPosting | null>(null);
+  const [showJobEditor, setShowJobEditor] = useState(false);
+  const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
+  const [showMemberEditor, setShowMemberEditor] = useState(false);
+  const [editingClient, setEditingClient] = useState<ClientLogo | null>(null);
+  const [editingStandardPartner, setEditingStandardPartner] = useState<StandardPartner | null>(null);
+  const [showPartnerEditor, setShowPartnerEditor] = useState(false);
 
   // Security/Password Change States
   const [passwordForm, setPasswordForm] = useState({
@@ -26,6 +36,17 @@ const Admin: React.FC = () => {
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
+
+  // 2FA States
+  const [twoFAEnabled, setTwoFAEnabled] = useState(false);
+  const [twoFAQRCode, setTwoFAQRCode] = useState('');
+  const [twoFASecret, setTwoFASecret] = useState('');
+  const [twoFAVerifyCode, setTwoFAVerifyCode] = useState('');
+  const [twoFADisablePassword, setTwoFADisablePassword] = useState('');
+  const [twoFALoading, setTwoFALoading] = useState(false);
+  const [twoFAError, setTwoFAError] = useState('');
+  const [twoFASuccess, setTwoFASuccess] = useState('');
+  const [showTwoFASetup, setShowTwoFASetup] = useState(false);
 
   // Database Tab States
   const [dbConfig, setDbConfig] = useState({
@@ -39,10 +60,19 @@ const Admin: React.FC = () => {
   const [testResult, setTestResult] = useState<{status: 'idle' | 'loading' | 'success' | 'error', msg: string}>({status: 'idle', msg: ''});
   const [copied, setCopied] = useState(false);
 
+  // Helper pour obtenir l'URL de base de l'API
+  const getBaseUrl = () => {
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return 'http://localhost:3001';
+    }
+    // Forcer HTTP car le port 3001 n'a pas de SSL configuré
+    return `http://${window.location.hostname}:3001`;
+  };
+
   // Vérifier la connexion à la base de données
   const checkDbHealth = async () => {
     try {
-      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
+      const baseUrl = getBaseUrl();
       const res = await fetch(`${baseUrl}/api/health`);
       if (res.ok) setDbStatus('connected');
       else setDbStatus('error');
@@ -61,7 +91,7 @@ const Admin: React.FC = () => {
       e.preventDefault();
       setTestResult({status: 'loading', msg: 'Test en cours...'});
       try {
-          const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
+          const baseUrl = getBaseUrl();
           const res = await fetch(`${baseUrl}/api/test-db-connection`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -129,38 +159,150 @@ const Admin: React.FC = () => {
 
   const handleAddPost = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPost.title && newPost.content) {
-      addPost(newPost as Omit<BlogPost, 'id' | 'date'>);
-      setNewPost({ title: '', category: 'Cybersécurité', author: 'Admin', content: '', excerpt: '', imageUrl: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=800' });
-      alert('Article ajouté !');
+    if (editingPost) {
+      // Mode édition
+      if (newPost.title && newPost.content) {
+        updatePost(editingPost.id, newPost as Omit<BlogPost, 'id' | 'date'>);
+        setNewPost({ title: '', category: 'Cybersécurité', author: 'Admin', content: '', excerpt: '', imageUrl: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=800' });
+        setEditingPost(null);
+        setShowBlogEditor(false);
+        alert('Article mis à jour !');
+      }
+    } else {
+      // Mode ajout
+      if (newPost.title && newPost.content) {
+        addPost(newPost as Omit<BlogPost, 'id' | 'date'>);
+        setNewPost({ title: '', category: 'Cybersécurité', author: 'Admin', content: '', excerpt: '', imageUrl: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=800' });
+        setShowBlogEditor(false);
+        alert('Article ajouté !');
+      }
     }
+  };
+
+  const handleEditPost = (post: BlogPost) => {
+    setEditingPost(post);
+    setNewPost({
+      title: post.title,
+      category: post.category,
+      author: post.author,
+      content: post.content,
+      excerpt: post.excerpt,
+      imageUrl: post.imageUrl
+    });
+    setShowBlogEditor(true);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingPost(null);
+    setNewPost({ title: '', category: 'Cybersécurité', author: 'Admin', content: '', excerpt: '', imageUrl: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=800' });
+    setShowBlogEditor(false);
   };
 
   const handleAddJob = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newJob.title && newJob.summary) {
-      addJob(newJob as Omit<JobPosting, 'id'>);
-      setNewJob({ title: '', location: 'Québec', type: 'Temps plein', summary: '' });
-      alert('Poste ajouté !');
+    if (editingJob) {
+      if (newJob.title && newJob.summary) {
+        updateJob(editingJob.id, newJob as Omit<JobPosting, 'id'>);
+        setNewJob({ title: '', location: 'Québec', type: 'Temps plein', summary: '' });
+        setEditingJob(null);
+        setShowJobEditor(false);
+        alert('Poste mis à jour !');
+      }
+    } else {
+      if (newJob.title && newJob.summary) {
+        addJob(newJob as Omit<JobPosting, 'id'>);
+        setNewJob({ title: '', location: 'Québec', type: 'Temps plein', summary: '' });
+        setShowJobEditor(false);
+        alert('Poste ajouté !');
+      }
     }
+  };
+
+  const handleEditJob = (job: JobPosting) => {
+    setEditingJob(job);
+    setNewJob({
+      title: job.title,
+      location: job.location,
+      type: job.type,
+      summary: job.summary
+    });
+    setShowJobEditor(true);
+  };
+
+  const handleCancelJobEdit = () => {
+    setEditingJob(null);
+    setNewJob({ title: '', location: 'Québec', type: 'Temps plein', summary: '' });
+    setShowJobEditor(false);
   };
 
   const handleAddTeamMember = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newMember.name && newMember.role) {
-      addTeamMember(newMember as Omit<TeamMember, 'id'>);
-      setNewMember({ name: '', role: '', bio: '', imageUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800', linkedinUrl: '', quote: '' });
-      alert('Membre ajouté !');
+    if (editingMember) {
+      if (newMember.name && newMember.role && newMember.bio) {
+        updateTeamMember(editingMember.id, newMember as Omit<TeamMember, 'id'>);
+        setNewMember({ name: '', role: '', bio: '', imageUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800', linkedinUrl: '', quote: '' });
+        setEditingMember(null);
+        setShowMemberEditor(false);
+        alert('Membre mis à jour !');
+      }
+    } else {
+      if (newMember.name && newMember.role) {
+        addTeamMember(newMember as Omit<TeamMember, 'id'>);
+        setNewMember({ name: '', role: '', bio: '', imageUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800', linkedinUrl: '', quote: '' });
+        setShowMemberEditor(false);
+        alert('Membre ajouté !');
+      }
     }
+  };
+
+  const handleEditTeamMember = (member: TeamMember) => {
+    setEditingMember(member);
+    setNewMember({
+      name: member.name,
+      role: member.role,
+      bio: member.bio,
+      imageUrl: member.imageUrl,
+      linkedinUrl: member.linkedinUrl,
+      quote: member.quote
+    });
+    setShowMemberEditor(true);
+  };
+
+  const handleCancelMemberEdit = () => {
+    setEditingMember(null);
+    setNewMember({ name: '', role: '', bio: '', imageUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800', linkedinUrl: '', quote: '' });
+    setShowMemberEditor(false);
   };
 
   const handleAddClientLogo = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newClient.name && newClient.logoUrl) {
-      addClientLogo(newClient as Omit<ClientLogo, 'id'>);
-      setNewClient({ name: '', logoUrl: '' });
-      alert('Client ajouté !');
+    if (editingClient) {
+      if (newClient.name && newClient.logoUrl) {
+        updateClientLogo(editingClient.id, newClient as Omit<ClientLogo, 'id'>);
+        setNewClient({ name: '', logoUrl: '' });
+        setEditingClient(null);
+        alert('Client mis à jour !');
+      }
+    } else {
+      if (newClient.name && newClient.logoUrl) {
+        addClientLogo(newClient as Omit<ClientLogo, 'id'>);
+        setNewClient({ name: '', logoUrl: '' });
+        alert('Client ajouté !');
+      }
     }
+  };
+
+  const handleEditClient = (client: ClientLogo) => {
+    setEditingClient(client);
+    setNewClient({
+      name: client.name,
+      logoUrl: client.logoUrl
+    });
+  };
+
+  const handleCancelClientEdit = () => {
+    setEditingClient(null);
+    setNewClient({ name: '', logoUrl: '' });
   };
 
   const handleSaveStrategic = (e: React.FormEvent) => {
@@ -174,11 +316,39 @@ const Admin: React.FC = () => {
 
   const handleAddStandardPartner = (e: React.FormEvent) => {
       e.preventDefault();
-      if(newStandardPartner.name && newStandardPartner.logoUrl) {
-          addStandardPartner(newStandardPartner as Omit<StandardPartner, 'id'>);
-          setNewStandardPartner({ name: '', category: 'Infrastructure & Cloud', description: '', logoUrl: '' });
-          alert('Partenaire ajouté !');
+      if (editingStandardPartner) {
+          if(newStandardPartner.name && newStandardPartner.logoUrl) {
+              updateStandardPartner(editingStandardPartner.id, newStandardPartner as Omit<StandardPartner, 'id'>);
+              setNewStandardPartner({ name: '', category: 'Infrastructure & Cloud', description: '', logoUrl: '' });
+              setEditingStandardPartner(null);
+              setShowPartnerEditor(false);
+              alert('Partenaire mis à jour !');
+          }
+      } else {
+          if(newStandardPartner.name && newStandardPartner.logoUrl) {
+              addStandardPartner(newStandardPartner as Omit<StandardPartner, 'id'>);
+              setNewStandardPartner({ name: '', category: 'Infrastructure & Cloud', description: '', logoUrl: '' });
+              setShowPartnerEditor(false);
+              alert('Partenaire ajouté !');
+          }
       }
+  };
+
+  const handleEditStandardPartner = (partner: StandardPartner) => {
+      setEditingStandardPartner(partner);
+      setNewStandardPartner({
+          name: partner.name,
+          category: partner.category,
+          description: partner.description,
+          logoUrl: partner.logoUrl
+      });
+      setShowPartnerEditor(true);
+  };
+
+  const handleCancelPartnerEdit = () => {
+      setEditingStandardPartner(null);
+      setNewStandardPartner({ name: '', category: 'Infrastructure & Cloud', description: '', logoUrl: '' });
+      setShowPartnerEditor(false);
   };
 
   const handleAddIncident = (e: React.FormEvent) => {
@@ -215,7 +385,7 @@ const Admin: React.FC = () => {
 
     try {
       const token = localStorage.getItem('auth_token');
-      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
+      const baseUrl = getBaseUrl();
 
       const response = await fetch(`${baseUrl}/api/auth/change-password`, {
         method: 'POST',
@@ -243,6 +413,144 @@ const Admin: React.FC = () => {
       setPasswordError('Erreur de connexion au serveur');
     } finally {
       setPasswordLoading(false);
+    }
+  };
+
+  // Vérifier le statut 2FA au chargement
+  useEffect(() => {
+    const check2FAStatus = async () => {
+      try {
+        const token = localStorage.getItem('auth_token');
+        const baseUrl = getBaseUrl();
+
+        const response = await fetch(`${baseUrl}/api/admin/2fa/status`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          setTwoFAEnabled(data.enabled);
+        }
+      } catch (err) {
+        console.error('Error checking 2FA status:', err);
+      }
+    };
+
+    check2FAStatus();
+  }, []);
+
+  // Configurer 2FA - Générer QR code
+  const handleSetup2FA = async () => {
+    setTwoFALoading(true);
+    setTwoFAError('');
+    setTwoFASuccess('');
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const baseUrl = getBaseUrl();
+
+      const response = await fetch(`${baseUrl}/api/admin/2fa/setup`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setTwoFAQRCode(data.qrCode);
+        setTwoFASecret(data.secret);
+        setShowTwoFASetup(true);
+      } else {
+        setTwoFAError(data.error || 'Erreur lors de la configuration 2FA');
+      }
+    } catch (err) {
+      console.error('2FA setup error:', err);
+      setTwoFAError('Erreur de connexion au serveur');
+    } finally {
+      setTwoFALoading(false);
+    }
+  };
+
+  // Vérifier et activer 2FA
+  const handleVerify2FA = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTwoFALoading(true);
+    setTwoFAError('');
+    setTwoFASuccess('');
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const baseUrl = getBaseUrl();
+
+      const response = await fetch(`${baseUrl}/api/admin/2fa/verify`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ token: twoFAVerifyCode })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setTwoFASuccess('Double authentification activée avec succès!');
+        setTwoFAEnabled(true);
+        setShowTwoFASetup(false);
+        setTwoFAVerifyCode('');
+        setTwoFAQRCode('');
+        setTwoFASecret('');
+        setTimeout(() => setTwoFASuccess(''), 5000);
+      } else {
+        setTwoFAError(data.error || 'Code de vérification invalide');
+      }
+    } catch (err) {
+      console.error('2FA verify error:', err);
+      setTwoFAError('Erreur de connexion au serveur');
+    } finally {
+      setTwoFALoading(false);
+    }
+  };
+
+  // Désactiver 2FA
+  const handleDisable2FA = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTwoFALoading(true);
+    setTwoFAError('');
+    setTwoFASuccess('');
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const baseUrl = getBaseUrl();
+
+      const response = await fetch(`${baseUrl}/api/admin/2fa/disable`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ password: twoFADisablePassword })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setTwoFASuccess('Double authentification désactivée');
+        setTwoFAEnabled(false);
+        setTwoFADisablePassword('');
+        setTimeout(() => setTwoFASuccess(''), 5000);
+      } else {
+        setTwoFAError(data.error || 'Mot de passe incorrect');
+      }
+    } catch (err) {
+      console.error('2FA disable error:', err);
+      setTwoFAError('Erreur de connexion au serveur');
+    } finally {
+      setTwoFALoading(false);
     }
   };
 
@@ -459,124 +767,352 @@ const Admin: React.FC = () => {
 
          {/* BLOG SECTION */}
          {activeTab === 'blog' && (
-             <div className="grid lg:grid-cols-3 gap-8">
-                 {/* List */}
-                 <div className="lg:col-span-2 space-y-4">
-                     <h2 className="font-bold text-lg text-slate-700 mb-4">Articles existants</h2>
-                     {posts.length === 0 ? (
-                         <div className="bg-white p-12 text-center rounded-2xl border border-dashed border-slate-300 text-slate-400">Aucun article trouvé. Vérifiez votre base de données.</div>
-                     ) : (
-                        posts.map(post => (
-                            <div key={post.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center">
-                                <div className="flex items-center gap-4">
-                                    <img src={post.imageUrl} className="w-12 h-12 rounded-lg object-cover bg-slate-200" alt="thumb"/>
-                                    <div>
-                                        <h3 className="font-bold text-slate-900">{post.title}</h3>
-                                        <span className="text-xs text-slate-500">{post.category} • {post.date}</span>
-                                    </div>
-                                </div>
-                                <button onClick={() => deletePost(post.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Supprimer">
-                                    <Trash2 className="w-5 h-5" />
-                                </button>
-                            </div>
-                        ))
-                     )}
-                 </div>
+             <>
+                 {!showBlogEditor ? (
+                     /* Article List View */
+                     <div className="space-y-6">
+                         <div className="flex justify-between items-center mb-6">
+                             <h2 className="font-bold text-xl text-slate-700">Articles du blog</h2>
+                             <button
+                                 onClick={() => setShowBlogEditor(true)}
+                                 className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-colors flex items-center gap-2"
+                             >
+                                 <Plus className="w-5 h-5" />
+                                 Nouvel Article
+                             </button>
+                         </div>
 
-                 {/* Add Form */}
-                 <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-200 h-fit">
-                     <h2 className="font-bold text-lg text-slate-900 mb-6 flex items-center gap-2">
-                         <Plus className="w-5 h-5" /> Ajouter un article
-                     </h2>
-                     <form onSubmit={handleAddPost} className="space-y-4">
-                         <div>
-                             <label className="block text-sm font-medium text-slate-700 mb-1">Titre</label>
-                             <input type="text" className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-900" value={newPost.title} onChange={e => setNewPost({...newPost, title: e.target.value})} required />
-                         </div>
-                         <div className="grid grid-cols-2 gap-4">
-                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Catégorie</label>
-                                <select className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-900" value={newPost.category} onChange={e => setNewPost({...newPost, category: e.target.value})}>
-                                    <option>Cybersécurité</option>
-                                    <option>Conformité</option>
-                                    <option>Technologie</option>
-                                    <option>Cloud</option>
-                                </select>
+                         {posts.length === 0 ? (
+                             <div className="bg-white p-16 text-center rounded-2xl border border-dashed border-slate-300">
+                                 <FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                                 <p className="text-slate-400 text-lg font-medium">Aucun article trouvé</p>
+                                 <p className="text-slate-400 text-sm mt-2">Commencez par créer votre premier article de blog</p>
                              </div>
-                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Auteur</label>
-                                <input type="text" className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-900" value={newPost.author} onChange={e => setNewPost({...newPost, author: e.target.value})} />
+                         ) : (
+                             <div className="grid gap-4">
+                                 {posts.map(post => (
+                                     <div key={post.id} className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+                                         <div className="flex justify-between items-start gap-6">
+                                             <div className="flex gap-6 flex-grow">
+                                                 <img
+                                                     src={post.imageUrl}
+                                                     className="w-24 h-24 rounded-xl object-cover bg-slate-200 flex-shrink-0"
+                                                     alt={post.title}
+                                                 />
+                                                 <div className="flex-grow">
+                                                     <h3 className="font-bold text-xl text-slate-900 mb-2">{post.title}</h3>
+                                                     <p className="text-sm text-slate-600 mb-3 line-clamp-2">{post.excerpt}</p>
+                                                     <div className="flex items-center gap-4 text-xs text-slate-500">
+                                                         <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full font-bold">{post.category}</span>
+                                                         <span>{post.author}</span>
+                                                         <span>{post.date}</span>
+                                                     </div>
+                                                 </div>
+                                             </div>
+                                             <div className="flex gap-2 flex-shrink-0">
+                                                 <button
+                                                     onClick={() => handleEditPost(post)}
+                                                     className="p-3 text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
+                                                     title="Modifier"
+                                                 >
+                                                     <Edit className="w-5 h-5" />
+                                                 </button>
+                                                 <button
+                                                     onClick={() => deletePost(post.id)}
+                                                     className="p-3 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                                                     title="Supprimer"
+                                                 >
+                                                     <Trash2 className="w-5 h-5" />
+                                                 </button>
+                                             </div>
+                                         </div>
+                                     </div>
+                                 ))}
                              </div>
+                         )}
+                     </div>
+                 ) : (
+                     /* Full-Page Editor View */
+                     <div className="max-w-7xl mx-auto">
+                         <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+                             {/* Editor Header */}
+                             <div className="bg-slate-50 border-b border-slate-200 p-6 flex justify-between items-center">
+                                 <div className="flex items-center gap-3">
+                                     {editingPost ? <Edit className="w-6 h-6 text-blue-600" /> : <Plus className="w-6 h-6 text-blue-600" />}
+                                     <div>
+                                         <h2 className="text-2xl font-bold text-slate-900">
+                                             {editingPost ? 'Modifier l\'article' : 'Nouvel article'}
+                                         </h2>
+                                         <p className="text-sm text-slate-500 mt-1">
+                                             {editingPost ? 'Apportez vos modifications et enregistrez' : 'Créez un nouvel article pour votre blog'}
+                                         </p>
+                                     </div>
+                                 </div>
+                                 <button
+                                     type="button"
+                                     onClick={handleCancelEdit}
+                                     className="text-slate-600 hover:text-slate-900 font-bold px-4 py-2 rounded-lg hover:bg-slate-100 transition-colors flex items-center gap-2"
+                                 >
+                                     <ArrowLeft className="w-4 h-4" />
+                                     Retour à la liste
+                                 </button>
+                             </div>
+
+                             {/* Editor Form */}
+                             <form onSubmit={handleAddPost} className="p-8 space-y-6">
+                                 {/* Basic Info Row */}
+                                 <div className="grid grid-cols-2 gap-6">
+                                     <div className="col-span-2">
+                                         <label className="block text-sm font-bold text-slate-700 mb-2">Titre de l'article</label>
+                                         <input
+                                             type="text"
+                                             className="w-full p-3 bg-white border border-slate-300 rounded-xl text-slate-900 text-lg font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                                             value={newPost.title}
+                                             onChange={e => setNewPost({...newPost, title: e.target.value})}
+                                             placeholder="Ex: Les meilleures pratiques en cybersécurité pour 2025"
+                                             required
+                                         />
+                                     </div>
+
+                                     <div>
+                                         <label className="block text-sm font-bold text-slate-700 mb-2">Catégorie</label>
+                                         <select
+                                             className="w-full p-3 bg-white border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                                             value={newPost.category}
+                                             onChange={e => setNewPost({...newPost, category: e.target.value})}
+                                         >
+                                             <option>Cybersécurité</option>
+                                             <option>Conformité</option>
+                                             <option>Technologie</option>
+                                             <option>Cloud</option>
+                                         </select>
+                                     </div>
+
+                                     <div>
+                                         <label className="block text-sm font-bold text-slate-700 mb-2">Auteur</label>
+                                         <input
+                                             type="text"
+                                             className="w-full p-3 bg-white border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                                             value={newPost.author}
+                                             onChange={e => setNewPost({...newPost, author: e.target.value})}
+                                             placeholder="Nom de l'auteur"
+                                         />
+                                     </div>
+
+                                     <div className="col-span-2">
+                                         <label className="block text-sm font-bold text-slate-700 mb-2">URL de l'image de couverture</label>
+                                         <input
+                                             type="text"
+                                             className="w-full p-3 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                                             value={newPost.imageUrl}
+                                             onChange={e => setNewPost({...newPost, imageUrl: e.target.value})}
+                                             placeholder="https://example.com/image.jpg"
+                                         />
+                                     </div>
+
+                                     <div className="col-span-2">
+                                         <label className="block text-sm font-bold text-slate-700 mb-2">Extrait (Résumé court pour l'aperçu)</label>
+                                         <textarea
+                                             className="w-full p-3 bg-white border border-slate-300 rounded-xl h-24 text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                                             value={newPost.excerpt}
+                                             onChange={e => setNewPost({...newPost, excerpt: e.target.value})}
+                                             placeholder="Un bref résumé qui apparaîtra dans la liste des articles..."
+                                             required
+                                         />
+                                     </div>
+                                 </div>
+
+                                 {/* Content Editor - Full Width */}
+                                 <div>
+                                     <label className="block text-sm font-bold text-slate-700 mb-3">Contenu de l'article (Markdown)</label>
+                                     <BlogEditor
+                                         value={newPost.content || ''}
+                                         onChange={(content) => setNewPost({...newPost, content})}
+                                         placeholder="Écrivez votre article en Markdown... Utilisez # pour les titres, ** pour le gras, - pour les listes, etc."
+                                     />
+                                 </div>
+
+                                 {/* Action Buttons */}
+                                 <div className="flex justify-end gap-4 pt-6 border-t border-slate-200">
+                                     <button
+                                         type="button"
+                                         onClick={handleCancelEdit}
+                                         className="px-6 py-3 text-slate-600 font-bold hover:bg-slate-100 rounded-xl transition-colors"
+                                     >
+                                         Annuler
+                                     </button>
+                                     <button
+                                         type="submit"
+                                         className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition-colors flex items-center gap-2"
+                                     >
+                                         <Save className="w-5 h-5" />
+                                         {editingPost ? 'Mettre à jour l\'article' : 'Publier l\'article'}
+                                     </button>
+                                 </div>
+                             </form>
                          </div>
-                         <div>
-                             <label className="block text-sm font-medium text-slate-700 mb-1">URL Image</label>
-                             <input type="text" className="w-full p-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900" value={newPost.imageUrl} onChange={e => setNewPost({...newPost, imageUrl: e.target.value})} />
-                         </div>
-                         <div>
-                             <label className="block text-sm font-medium text-slate-700 mb-1">Extrait (Court)</label>
-                             <textarea className="w-full p-2 bg-white border border-slate-300 rounded-lg h-20 text-slate-900" value={newPost.excerpt} onChange={e => setNewPost({...newPost, excerpt: e.target.value})} required></textarea>
-                         </div>
-                         <div>
-                             <label className="block text-sm font-medium text-slate-700 mb-1">Contenu Complet</label>
-                             <textarea className="w-full p-2 bg-white border border-slate-300 rounded-lg h-40 text-slate-900" value={newPost.content} onChange={e => setNewPost({...newPost, content: e.target.value})} required></textarea>
-                         </div>
-                         <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors">Publier</button>
-                     </form>
-                 </div>
-             </div>
+                     </div>
+                 )}
+             </>
          )}
 
          {/* CAREERS SECTION */}
          {activeTab === 'careers' && (
-             <div className="grid lg:grid-cols-3 gap-8">
-                 {/* List */}
-                 <div className="lg:col-span-2 space-y-4">
-                     <h2 className="font-bold text-lg text-slate-700 mb-4">Postes ouverts</h2>
-                     {jobs.map(job => (
-                         <div key={job.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center">
-                             <div>
-                                 <h3 className="font-bold text-slate-900">{job.title}</h3>
-                                 <span className="text-xs text-slate-500">{job.location} • {job.type}</span>
-                             </div>
-                             <button onClick={() => deleteJob(job.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Supprimer">
-                                 <Trash2 className="w-5 h-5" />
+             <>
+                 {!showJobEditor ? (
+                     /* Job List View */
+                     <div className="space-y-6">
+                         <div className="flex justify-between items-center mb-6">
+                             <h2 className="font-bold text-xl text-slate-700">Postes ouverts</h2>
+                             <button
+                                 onClick={() => setShowJobEditor(true)}
+                                 className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-colors flex items-center gap-2"
+                             >
+                                 <Plus className="w-5 h-5" />
+                                 Nouveau Poste
                              </button>
                          </div>
-                     ))}
-                 </div>
 
-                 {/* Add Form */}
-                 <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-200 h-fit">
-                     <h2 className="font-bold text-lg text-slate-900 mb-6 flex items-center gap-2">
-                         <Plus className="w-5 h-5" /> Ajouter un poste
-                     </h2>
-                     <form onSubmit={handleAddJob} className="space-y-4">
-                         <div>
-                             <label className="block text-sm font-medium text-slate-700 mb-1">Titre du poste</label>
-                             <input type="text" className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-900" value={newJob.title} onChange={e => setNewJob({...newJob, title: e.target.value})} required placeholder="ex: Technicien N1"/>
-                         </div>
-                         <div className="grid grid-cols-2 gap-4">
-                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Lieu</label>
-                                <input type="text" className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-900" value={newJob.location} onChange={e => setNewJob({...newJob, location: e.target.value})} />
+                         {jobs.length === 0 ? (
+                             <div className="bg-white p-16 text-center rounded-2xl border border-dashed border-slate-300">
+                                 <Briefcase className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                                 <p className="text-slate-400 text-lg font-medium">Aucun poste ouvert</p>
+                                 <p className="text-slate-400 text-sm mt-2">Commencez par créer votre première offre d'emploi</p>
                              </div>
-                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
-                                <select className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-900" value={newJob.type} onChange={e => setNewJob({...newJob, type: e.target.value})}>
-                                    <option>Temps plein</option>
-                                    <option>Temps partiel</option>
-                                    <option>Contractuel</option>
-                                </select>
+                         ) : (
+                             <div className="grid gap-4">
+                                 {jobs.map(job => (
+                                     <div key={job.id} className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+                                         <div className="flex justify-between items-start gap-6">
+                                             <div className="flex-grow">
+                                                 <h3 className="font-bold text-xl text-slate-900 mb-2">{job.title}</h3>
+                                                 <div className="flex items-center gap-4 text-sm text-slate-500 mb-3">
+                                                     <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full font-bold">{job.location}</span>
+                                                     <span>{job.type}</span>
+                                                 </div>
+                                                 <p className="text-sm text-slate-600 line-clamp-2">{job.summary}</p>
+                                             </div>
+                                             <div className="flex gap-2 flex-shrink-0">
+                                                 <button
+                                                     onClick={() => handleEditJob(job)}
+                                                     className="p-3 text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
+                                                     title="Modifier"
+                                                 >
+                                                     <Edit className="w-5 h-5" />
+                                                 </button>
+                                                 <button
+                                                     onClick={() => deleteJob(job.id)}
+                                                     className="p-3 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                                                     title="Supprimer"
+                                                 >
+                                                     <Trash2 className="w-5 h-5" />
+                                                 </button>
+                                             </div>
+                                         </div>
+                                     </div>
+                                 ))}
                              </div>
+                         )}
+                     </div>
+                 ) : (
+                     /* Full-Page Job Editor View */
+                     <div className="max-w-6xl mx-auto">
+                         <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+                             {/* Editor Header */}
+                             <div className="bg-slate-50 border-b border-slate-200 p-6 flex justify-between items-center">
+                                 <div className="flex items-center gap-3">
+                                     {editingJob ? <Edit className="w-6 h-6 text-blue-600" /> : <Plus className="w-6 h-6 text-blue-600" />}
+                                     <div>
+                                         <h2 className="text-2xl font-bold text-slate-900">
+                                             {editingJob ? 'Modifier le poste' : 'Nouveau poste'}
+                                         </h2>
+                                         <p className="text-sm text-slate-500 mt-1">
+                                             {editingJob ? 'Modifiez les détails du poste' : 'Créez une nouvelle offre d\'emploi'}
+                                         </p>
+                                     </div>
+                                 </div>
+                                 <button
+                                     type="button"
+                                     onClick={handleCancelJobEdit}
+                                     className="text-slate-600 hover:text-slate-900 font-bold px-4 py-2 rounded-lg hover:bg-slate-100 transition-colors flex items-center gap-2"
+                                 >
+                                     <ArrowLeft className="w-4 h-4" />
+                                     Retour à la liste
+                                 </button>
+                             </div>
+
+                             {/* Editor Form */}
+                             <form onSubmit={handleAddJob} className="p-8 space-y-6">
+                                 <div className="grid grid-cols-3 gap-6">
+                                     <div className="col-span-3">
+                                         <label className="block text-sm font-bold text-slate-700 mb-2">Titre du poste</label>
+                                         <input
+                                             type="text"
+                                             className="w-full p-3 bg-white border border-slate-300 rounded-xl text-slate-900 text-lg font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                                             value={newJob.title}
+                                             onChange={e => setNewJob({...newJob, title: e.target.value})}
+                                             placeholder="ex: Technicien support N1"
+                                             required
+                                         />
+                                     </div>
+
+                                     <div>
+                                         <label className="block text-sm font-bold text-slate-700 mb-2">Lieu</label>
+                                         <input
+                                             type="text"
+                                             className="w-full p-3 bg-white border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                                             value={newJob.location}
+                                             onChange={e => setNewJob({...newJob, location: e.target.value})}
+                                             placeholder="Québec, QC"
+                                         />
+                                     </div>
+
+                                     <div className="col-span-2">
+                                         <label className="block text-sm font-bold text-slate-700 mb-2">Type de contrat</label>
+                                         <select
+                                             className="w-full p-3 bg-white border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                                             value={newJob.type}
+                                             onChange={e => setNewJob({...newJob, type: e.target.value})}
+                                         >
+                                             <option>Temps plein</option>
+                                             <option>Temps partiel</option>
+                                             <option>Contractuel</option>
+                                         </select>
+                                     </div>
+                                 </div>
+
+                                 {/* Description with Markdown Editor */}
+                                 <div>
+                                     <label className="block text-sm font-bold text-slate-700 mb-3">Description du poste (Markdown)</label>
+                                     <BlogEditor
+                                         value={newJob.summary || ''}
+                                         onChange={(summary) => setNewJob({...newJob, summary})}
+                                         placeholder="Décrivez le poste en détail avec Markdown... Responsabilités, qualifications, avantages..."
+                                     />
+                                 </div>
+
+                                 {/* Action Buttons */}
+                                 <div className="flex justify-end gap-4 pt-6 border-t border-slate-200">
+                                     <button
+                                         type="button"
+                                         onClick={handleCancelJobEdit}
+                                         className="px-6 py-3 text-slate-600 font-bold hover:bg-slate-100 rounded-xl transition-colors"
+                                     >
+                                         Annuler
+                                     </button>
+                                     <button
+                                         type="submit"
+                                         className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition-colors flex items-center gap-2"
+                                     >
+                                         <Save className="w-5 h-5" />
+                                         {editingJob ? 'Mettre à jour le poste' : 'Publier le poste'}
+                                     </button>
+                                 </div>
+                             </form>
                          </div>
-                         <div>
-                             <label className="block text-sm font-medium text-slate-700 mb-1">Description sommaire</label>
-                             <textarea className="w-full p-2 bg-white border border-slate-300 rounded-lg h-32 text-slate-900" value={newJob.summary} onChange={e => setNewJob({...newJob, summary: e.target.value})} required placeholder="Description attrayante..."></textarea>
-                         </div>
-                         <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors">Publier l'offre</button>
-                     </form>
-                 </div>
-             </div>
+                     </div>
+                 )}
+             </>
          )}
 
          {/* STATUS PAGE MANAGEMENT */}
@@ -739,9 +1275,14 @@ const Admin: React.FC = () => {
                                                 <span className="text-xs text-slate-500 truncate max-w-[200px] block">{client.logoUrl}</span>
                                             </div>
                                         </div>
-                                        <button onClick={() => deleteClientLogo(client.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Supprimer">
-                                            <Trash2 className="w-5 h-5" />
-                                        </button>
+                                        <div className="flex gap-2">
+                                            <button onClick={() => handleEditClient(client)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Modifier">
+                                                <Edit className="w-5 h-5" />
+                                            </button>
+                                            <button onClick={() => deleteClientLogo(client.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Supprimer">
+                                                <Trash2 className="w-5 h-5" />
+                                            </button>
+                                        </div>
                                     </div>
                                 ))
                             )}
@@ -750,9 +1291,15 @@ const Admin: React.FC = () => {
                  </div>
 
                  <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-200 h-fit">
-                     <h2 className="font-bold text-lg text-slate-900 mb-6 flex items-center gap-2">
-                         <Plus className="w-5 h-5" /> Ajouter un client
-                     </h2>
+                     <div className="flex justify-between items-center mb-6">
+                         <h2 className="font-bold text-lg text-slate-900 flex items-center gap-2">
+                             {editingClient ? <Edit className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                             {editingClient ? 'Modifier le client' : 'Ajouter un client'}
+                         </h2>
+                         {editingClient && (
+                             <button type="button" onClick={handleCancelClientEdit} className="text-sm text-slate-500 hover:text-slate-700">Annuler</button>
+                         )}
+                     </div>
                      <form onSubmit={handleAddClientLogo} className="space-y-4">
                          <div>
                              <label className="block text-sm font-medium text-slate-700 mb-1">Nom du client</label>
@@ -763,7 +1310,9 @@ const Admin: React.FC = () => {
                              <input type="text" className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-sm" value={newClient.logoUrl} onChange={e => setNewClient({...newClient, logoUrl: e.target.value})} required placeholder="https://..."/>
                              <p className="text-xs text-slate-500 mt-1">Recommandé : PNG transparent ou SVG. Hauteur env. 80px.</p>
                          </div>
-                         <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors">Ajouter à la liste</button>
+                         <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors">
+                             {editingClient ? 'Mettre à jour' : 'Ajouter à la liste'}
+                         </button>
                      </form>
                  </div>
              </div>
@@ -848,29 +1397,44 @@ const Admin: React.FC = () => {
                  </div>
 
                  {/* Section 2: Standard Partners */}
-                 <div className="grid lg:grid-cols-3 gap-8">
-                     <div className="lg:col-span-2 space-y-6">
-                         <div className="bg-slate-50 border-l-4 border-slate-500 p-4 rounded-r-xl">
-                             <h2 className="text-xl font-bold text-slate-900">2. Partenaires Technologiques</h2>
-                             <p className="text-slate-500 text-sm mt-1">Liste des partenaires affichés par catégorie.</p>
+                 {!showPartnerEditor ? (
+                     /* Partner List View */
+                     <div className="space-y-6">
+                         <div className="flex justify-between items-center">
+                             <div>
+                                 <h2 className="text-xl font-bold text-slate-900">2. Partenaires Technologiques</h2>
+                                 <p className="text-slate-500 text-sm mt-1">Liste des partenaires affichés par catégorie</p>
+                             </div>
+                             <button
+                                 onClick={() => setShowPartnerEditor(true)}
+                                 className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-colors flex items-center gap-2"
+                             >
+                                 <Plus className="w-5 h-5" />
+                                 Nouveau Partenaire
+                             </button>
                          </div>
-                         
+
                          {["Infrastructure & Cloud", "Cybersécurité & Outils MSP", "Matériel & Périphériques"].map(cat => (
                              <div key={cat} className="mb-8">
-                                 <h3 className="font-bold text-slate-700 border-b border-slate-200 pb-2 mb-4 uppercase text-sm tracking-wider">{cat}</h3>
-                                 <div className="space-y-2">
+                                 <h3 className="font-bold text-slate-700 border-b-2 border-blue-600 pb-2 mb-4 uppercase text-sm tracking-wider">{cat}</h3>
+                                 <div className="space-y-3">
                                      {standardPartners.filter(p => p.category === cat).map(p => (
-                                         <div key={p.id} className="bg-white p-3 rounded-lg border border-slate-200 flex justify-between items-center shadow-sm">
-                                             <div className="flex items-center gap-3">
-                                                 <img src={p.logoUrl} alt={p.name} className="w-8 h-8 object-contain bg-slate-50 rounded p-1"/>
+                                         <div key={p.id} className="bg-white p-4 rounded-xl border border-slate-200 flex justify-between items-start shadow-sm hover:shadow-md transition-shadow">
+                                             <div className="flex items-center gap-4">
+                                                 <img src={p.logoUrl} alt={p.name} className="w-12 h-12 object-contain bg-slate-50 rounded-lg p-2 border border-slate-200"/>
                                                  <div>
-                                                     <p className="font-bold text-sm text-slate-800">{p.name}</p>
-                                                     <p className="text-xs text-slate-400 truncate max-w-xs">{p.description}</p>
+                                                     <p className="font-bold text-base text-slate-900">{p.name}</p>
+                                                     <p className="text-sm text-slate-600 line-clamp-2 max-w-md">{p.description}</p>
                                                  </div>
                                              </div>
-                                             <button onClick={() => deleteStandardPartner(p.id)} className="p-2 text-red-400 hover:bg-red-50 rounded-lg hover:text-red-600">
-                                                 <Trash2 className="w-4 h-4" />
-                                             </button>
+                                             <div className="flex gap-2">
+                                                 <button onClick={() => handleEditStandardPartner(p)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Modifier">
+                                                     <Edit className="w-5 h-5" />
+                                                 </button>
+                                                 <button onClick={() => deleteStandardPartner(p.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Supprimer">
+                                                     <Trash2 className="w-5 h-5" />
+                                                 </button>
+                                             </div>
                                          </div>
                                      ))}
                                      {standardPartners.filter(p => p.category === cat).length === 0 && (
@@ -880,36 +1444,105 @@ const Admin: React.FC = () => {
                              </div>
                          ))}
                      </div>
+                 ) : (
+                     /* Full-Page Partner Editor View */
+                     <div className="max-w-6xl mx-auto">
+                         <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+                             {/* Editor Header */}
+                             <div className="bg-slate-50 border-b border-slate-200 p-6 flex justify-between items-center">
+                                 <div className="flex items-center gap-3">
+                                     {editingStandardPartner ? <Edit className="w-6 h-6 text-blue-600" /> : <Plus className="w-6 h-6 text-blue-600" />}
+                                     <div>
+                                         <h2 className="text-2xl font-bold text-slate-900">
+                                             {editingStandardPartner ? 'Modifier le partenaire' : 'Nouveau partenaire'}
+                                         </h2>
+                                         <p className="text-sm text-slate-500 mt-1">
+                                             {editingStandardPartner ? 'Modifiez les informations du partenaire' : 'Ajoutez un nouveau partenaire technologique'}
+                                         </p>
+                                     </div>
+                                 </div>
+                                 <button
+                                     type="button"
+                                     onClick={handleCancelPartnerEdit}
+                                     className="text-slate-600 hover:text-slate-900 font-bold px-4 py-2 rounded-lg hover:bg-slate-100 transition-colors flex items-center gap-2"
+                                 >
+                                     <ArrowLeft className="w-4 h-4" />
+                                     Retour à la liste
+                                 </button>
+                             </div>
 
-                     <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-200 h-fit">
-                         <h2 className="font-bold text-lg text-slate-900 mb-6 flex items-center gap-2">
-                             <Plus className="w-5 h-5" /> Ajouter un partenaire
-                         </h2>
-                         <form onSubmit={handleAddStandardPartner} className="space-y-4">
-                             <div>
-                                 <label className="block text-sm font-medium text-slate-700 mb-1">Nom</label>
-                                 <input type="text" className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-900" value={newStandardPartner.name} onChange={e => setNewStandardPartner({...newStandardPartner, name: e.target.value})} required />
-                             </div>
-                             <div>
-                                 <label className="block text-sm font-medium text-slate-700 mb-1">Catégorie</label>
-                                 <select className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-900" value={newStandardPartner.category} onChange={e => setNewStandardPartner({...newStandardPartner, category: e.target.value as any})}>
-                                     <option>Infrastructure & Cloud</option>
-                                     <option>Cybersécurité & Outils MSP</option>
-                                     <option>Matériel & Périphériques</option>
-                                 </select>
-                             </div>
-                             <div>
-                                 <label className="block text-sm font-medium text-slate-700 mb-1">URL Logo</label>
-                                 <input type="text" className="w-full p-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900" value={newStandardPartner.logoUrl} onChange={e => setNewStandardPartner({...newStandardPartner, logoUrl: e.target.value})} placeholder="https://..." required/>
-                             </div>
-                             <div>
-                                 <label className="block text-sm font-medium text-slate-700 mb-1">Description courte</label>
-                                 <textarea className="w-full p-2 bg-white border border-slate-300 rounded-lg h-24 text-slate-900" value={newStandardPartner.description} onChange={e => setNewStandardPartner({...newStandardPartner, description: e.target.value})} required></textarea>
-                             </div>
-                             <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors">Ajouter</button>
-                         </form>
+                             {/* Editor Form */}
+                             <form onSubmit={handleAddStandardPartner} className="p-8 space-y-6">
+                                 <div className="grid grid-cols-2 gap-6">
+                                     <div className="col-span-2">
+                                         <label className="block text-sm font-bold text-slate-700 mb-2">Nom du partenaire</label>
+                                         <input
+                                             type="text"
+                                             className="w-full p-3 bg-white border border-slate-300 rounded-xl text-slate-900 text-lg font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                                             value={newStandardPartner.name}
+                                             onChange={e => setNewStandardPartner({...newStandardPartner, name: e.target.value})}
+                                             placeholder="ex: Microsoft"
+                                             required
+                                         />
+                                     </div>
+
+                                     <div>
+                                         <label className="block text-sm font-bold text-slate-700 mb-2">Catégorie</label>
+                                         <select
+                                             className="w-full p-3 bg-white border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                                             value={newStandardPartner.category}
+                                             onChange={e => setNewStandardPartner({...newStandardPartner, category: e.target.value as any})}
+                                         >
+                                             <option>Infrastructure & Cloud</option>
+                                             <option>Cybersécurité & Outils MSP</option>
+                                             <option>Matériel & Périphériques</option>
+                                         </select>
+                                     </div>
+
+                                     <div>
+                                         <label className="block text-sm font-bold text-slate-700 mb-2">URL du logo</label>
+                                         <input
+                                             type="text"
+                                             className="w-full p-3 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                                             value={newStandardPartner.logoUrl}
+                                             onChange={e => setNewStandardPartner({...newStandardPartner, logoUrl: e.target.value})}
+                                             placeholder="https://example.com/logo.png"
+                                             required
+                                         />
+                                     </div>
+                                 </div>
+
+                                 {/* Description with Markdown Editor */}
+                                 <div>
+                                     <label className="block text-sm font-bold text-slate-700 mb-3">Description du partenaire (Markdown)</label>
+                                     <BlogEditor
+                                         value={newStandardPartner.description || ''}
+                                         onChange={(description) => setNewStandardPartner({...newStandardPartner, description})}
+                                         placeholder="Décrivez le partenaire en Markdown... Produits, services, expertise..."
+                                     />
+                                 </div>
+
+                                 {/* Action Buttons */}
+                                 <div className="flex justify-end gap-4 pt-6 border-t border-slate-200">
+                                     <button
+                                         type="button"
+                                         onClick={handleCancelPartnerEdit}
+                                         className="px-6 py-3 text-slate-600 font-bold hover:bg-slate-100 rounded-xl transition-colors"
+                                     >
+                                         Annuler
+                                     </button>
+                                     <button
+                                         type="submit"
+                                         className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition-colors flex items-center gap-2"
+                                     >
+                                         <Save className="w-5 h-5" />
+                                         {editingStandardPartner ? 'Mettre à jour le partenaire' : 'Ajouter le partenaire'}
+                                     </button>
+                                 </div>
+                             </form>
+                         </div>
                      </div>
-                 </div>
+                 )}
 
              </div>
          )}
@@ -947,58 +1580,187 @@ const Admin: React.FC = () => {
                  </div>
 
                  {/* 2. Team Management */}
-                 <div className="grid lg:grid-cols-3 gap-8">
-                     <div className="lg:col-span-2 space-y-4">
-                         <h2 className="font-bold text-lg text-slate-700 mb-4">Membres de l'équipe</h2>
-                         {teamMembers.map(member => (
-                             <div key={member.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center">
-                                 <div className="flex items-center gap-4">
-                                     <img src={member.imageUrl} className="w-12 h-12 rounded-full object-cover bg-slate-200" alt="avatar"/>
+                 {!showMemberEditor ? (
+                     /* Team Member List View */
+                     <div className="space-y-6">
+                         <div className="flex justify-between items-center mb-6">
+                             <h2 className="font-bold text-xl text-slate-700">Membres de l'équipe</h2>
+                             <button
+                                 onClick={() => setShowMemberEditor(true)}
+                                 className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-colors flex items-center gap-2"
+                             >
+                                 <Plus className="w-5 h-5" />
+                                 Nouveau Membre
+                             </button>
+                         </div>
+
+                         {teamMembers.length === 0 ? (
+                             <div className="bg-white p-16 text-center rounded-2xl border border-dashed border-slate-300">
+                                 <Users className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                                 <p className="text-slate-400 text-lg font-medium">Aucun membre d'équipe</p>
+                                 <p className="text-slate-400 text-sm mt-2">Commencez par ajouter votre premier membre d'équipe</p>
+                             </div>
+                         ) : (
+                             <div className="grid gap-4">
+                                 {teamMembers.map(member => (
+                                     <div key={member.id} className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+                                         <div className="flex justify-between items-start gap-6">
+                                             <div className="flex gap-6 flex-grow items-center">
+                                                 <img
+                                                     src={member.imageUrl}
+                                                     className="w-20 h-20 rounded-full object-cover bg-slate-200 flex-shrink-0 ring-4 ring-blue-50"
+                                                     alt={member.name}
+                                                 />
+                                                 <div className="flex-grow">
+                                                     <h3 className="font-bold text-xl text-slate-900 mb-1">{member.name}</h3>
+                                                     <p className="text-sm font-bold text-blue-600 uppercase mb-2">{member.role}</p>
+                                                     <p className="text-sm text-slate-600 line-clamp-2">{member.bio}</p>
+                                                     {member.quote && (
+                                                         <p className="text-xs italic text-slate-500 mt-2">"{member.quote}"</p>
+                                                     )}
+                                                 </div>
+                                             </div>
+                                             <div className="flex gap-2 flex-shrink-0">
+                                                 <button
+                                                     onClick={() => handleEditTeamMember(member)}
+                                                     className="p-3 text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
+                                                     title="Modifier"
+                                                 >
+                                                     <Edit className="w-5 h-5" />
+                                                 </button>
+                                                 <button
+                                                     onClick={() => deleteTeamMember(member.id)}
+                                                     className="p-3 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                                                     title="Supprimer"
+                                                 >
+                                                     <Trash2 className="w-5 h-5" />
+                                                 </button>
+                                             </div>
+                                         </div>
+                                     </div>
+                                 ))}
+                             </div>
+                         )}
+                     </div>
+                 ) : (
+                     /* Full-Page Team Member Editor View */
+                     <div className="max-w-6xl mx-auto">
+                         <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+                             {/* Editor Header */}
+                             <div className="bg-slate-50 border-b border-slate-200 p-6 flex justify-between items-center">
+                                 <div className="flex items-center gap-3">
+                                     {editingMember ? <Edit className="w-6 h-6 text-blue-600" /> : <Plus className="w-6 h-6 text-blue-600" />}
                                      <div>
-                                         <h3 className="font-bold text-slate-900">{member.name}</h3>
-                                         <span className="text-xs text-blue-600 font-bold uppercase">{member.role}</span>
+                                         <h2 className="text-2xl font-bold text-slate-900">
+                                             {editingMember ? 'Modifier le membre' : 'Nouveau membre d\'équipe'}
+                                         </h2>
+                                         <p className="text-sm text-slate-500 mt-1">
+                                             {editingMember ? 'Modifiez les informations du membre' : 'Ajoutez un nouveau membre à l\'équipe'}
+                                         </p>
                                      </div>
                                  </div>
-                                 <button onClick={() => deleteTeamMember(member.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Supprimer">
-                                     <Trash2 className="w-5 h-5" />
+                                 <button
+                                     type="button"
+                                     onClick={handleCancelMemberEdit}
+                                     className="text-slate-600 hover:text-slate-900 font-bold px-4 py-2 rounded-lg hover:bg-slate-100 transition-colors flex items-center gap-2"
+                                 >
+                                     <ArrowLeft className="w-4 h-4" />
+                                     Retour à la liste
                                  </button>
                              </div>
-                         ))}
-                     </div>
 
-                     <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-200 h-fit">
-                         <h2 className="font-bold text-lg text-slate-900 mb-6 flex items-center gap-2">
-                             <Plus className="w-5 h-5" /> Ajouter un membre
-                         </h2>
-                         <form onSubmit={handleAddTeamMember} className="space-y-4">
-                             <div>
-                                 <label className="block text-sm font-medium text-slate-700 mb-1">Nom Complet</label>
-                                 <input type="text" className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-900" value={newMember.name} onChange={e => setNewMember({...newMember, name: e.target.value})} required />
-                             </div>
-                             <div>
-                                 <label className="block text-sm font-medium text-slate-700 mb-1">Rôle</label>
-                                 <input type="text" className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-900" value={newMember.role} onChange={e => setNewMember({...newMember, role: e.target.value})} required placeholder="ex: Président" />
-                             </div>
-                             <div>
-                                 <label className="block text-sm font-medium text-slate-700 mb-1">Photo URL</label>
-                                 <input type="text" className="w-full p-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900" value={newMember.imageUrl} onChange={e => setNewMember({...newMember, imageUrl: e.target.value})} />
-                             </div>
-                             <div>
-                                 <label className="block text-sm font-medium text-slate-700 mb-1">Bio</label>
-                                 <textarea className="w-full p-2 bg-white border border-slate-300 rounded-lg h-24 text-slate-900" value={newMember.bio} onChange={e => setNewMember({...newMember, bio: e.target.value})} required></textarea>
-                             </div>
-                             <div>
-                                 <label className="block text-sm font-medium text-slate-700 mb-1">Citation (Optionnel)</label>
-                                 <input type="text" className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-900" value={newMember.quote} onChange={e => setNewMember({...newMember, quote: e.target.value})} />
-                             </div>
-                             <div>
-                                 <label className="block text-sm font-medium text-slate-700 mb-1">LinkedIn URL (Optionnel)</label>
-                                 <input type="text" className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-900" value={newMember.linkedinUrl} onChange={e => setNewMember({...newMember, linkedinUrl: e.target.value})} />
-                             </div>
-                             <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors">Ajouter</button>
-                         </form>
+                             {/* Editor Form */}
+                             <form onSubmit={handleAddTeamMember} className="p-8 space-y-6">
+                                 <div className="grid grid-cols-2 gap-6">
+                                     <div>
+                                         <label className="block text-sm font-bold text-slate-700 mb-2">Nom complet</label>
+                                         <input
+                                             type="text"
+                                             className="w-full p-3 bg-white border border-slate-300 rounded-xl text-slate-900 text-lg font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                                             value={newMember.name}
+                                             onChange={e => setNewMember({...newMember, name: e.target.value})}
+                                             placeholder="ex: Jean Tremblay"
+                                             required
+                                         />
+                                     </div>
+
+                                     <div>
+                                         <label className="block text-sm font-bold text-slate-700 mb-2">Rôle / Titre</label>
+                                         <input
+                                             type="text"
+                                             className="w-full p-3 bg-white border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                                             value={newMember.role}
+                                             onChange={e => setNewMember({...newMember, role: e.target.value})}
+                                             placeholder="ex: Président"
+                                             required
+                                         />
+                                     </div>
+
+                                     <div>
+                                         <label className="block text-sm font-bold text-slate-700 mb-2">Photo URL</label>
+                                         <input
+                                             type="text"
+                                             className="w-full p-3 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                                             value={newMember.imageUrl}
+                                             onChange={e => setNewMember({...newMember, imageUrl: e.target.value})}
+                                             placeholder="https://example.com/photo.jpg"
+                                         />
+                                     </div>
+
+                                     <div>
+                                         <label className="block text-sm font-bold text-slate-700 mb-2">LinkedIn URL (Optionnel)</label>
+                                         <input
+                                             type="text"
+                                             className="w-full p-3 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                                             value={newMember.linkedinUrl}
+                                             onChange={e => setNewMember({...newMember, linkedinUrl: e.target.value})}
+                                             placeholder="https://linkedin.com/in/..."
+                                         />
+                                     </div>
+
+                                     <div className="col-span-2">
+                                         <label className="block text-sm font-bold text-slate-700 mb-2">Citation / Devise (Optionnel)</label>
+                                         <input
+                                             type="text"
+                                             className="w-full p-3 bg-white border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                                             value={newMember.quote}
+                                             onChange={e => setNewMember({...newMember, quote: e.target.value})}
+                                             placeholder="Une citation inspirante..."
+                                         />
+                                     </div>
+                                 </div>
+
+                                 {/* Bio with Markdown Editor */}
+                                 <div>
+                                     <label className="block text-sm font-bold text-slate-700 mb-3">Biographie (Markdown)</label>
+                                     <BlogEditor
+                                         value={newMember.bio || ''}
+                                         onChange={(bio) => setNewMember({...newMember, bio})}
+                                         placeholder="Rédigez la biographie du membre avec Markdown... Parcours, expertise, réalisations..."
+                                     />
+                                 </div>
+
+                                 {/* Action Buttons */}
+                                 <div className="flex justify-end gap-4 pt-6 border-t border-slate-200">
+                                     <button
+                                         type="button"
+                                         onClick={handleCancelMemberEdit}
+                                         className="px-6 py-3 text-slate-600 font-bold hover:bg-slate-100 rounded-xl transition-colors"
+                                     >
+                                         Annuler
+                                     </button>
+                                     <button
+                                         type="submit"
+                                         className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition-colors flex items-center gap-2"
+                                     >
+                                         <Save className="w-5 h-5" />
+                                         {editingMember ? 'Mettre à jour le membre' : 'Ajouter le membre'}
+                                     </button>
+                                 </div>
+                             </form>
+                         </div>
                      </div>
-                 </div>
+                 )}
              </div>
          )}
 
@@ -1237,6 +1999,190 @@ const Admin: React.FC = () => {
                              </ul>
                          </div>
                      </div>
+                 </div>
+
+                 {/* Double Authentification (2FA) */}
+                 <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
+                     <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-200">
+                         <div className="p-3 bg-green-100 rounded-xl">
+                             <Shield className="w-6 h-6 text-green-600" />
+                         </div>
+                         <div>
+                             <h2 className="text-2xl font-bold text-slate-900">Double Authentification (2FA)</h2>
+                             <p className="text-sm text-slate-500">Renforcez la sécurité de votre compte avec TOTP</p>
+                         </div>
+                     </div>
+
+                     {/* Status 2FA */}
+                     <div className="mb-6">
+                         <div className={`flex items-center gap-3 p-4 rounded-xl border-2 ${twoFAEnabled ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200'}`}>
+                             <div className={`w-3 h-3 rounded-full ${twoFAEnabled ? 'bg-green-500 animate-pulse' : 'bg-slate-400'}`}></div>
+                             <span className="font-bold text-slate-900">
+                                 Statut : {twoFAEnabled ? (
+                                     <span className="text-green-600">Activé ✓</span>
+                                 ) : (
+                                     <span className="text-slate-500">Désactivé</span>
+                                 )}
+                             </span>
+                         </div>
+                     </div>
+
+                     {!twoFAEnabled ? (
+                         /* Activer 2FA */
+                         !showTwoFASetup ? (
+                             <div>
+                                 <div className="bg-blue-50 border border-blue-200 p-6 rounded-xl mb-6">
+                                     <h3 className="font-bold text-blue-900 mb-2">Pourquoi activer la double authentification ?</h3>
+                                     <ul className="text-sm text-blue-800 space-y-1">
+                                         <li>• Protection contre les accès non autorisés</li>
+                                         <li>• Sécurité renforcée même si votre mot de passe est compromis</li>
+                                         <li>• Compatible avec Google Authenticator, Authy, Microsoft Authenticator</li>
+                                     </ul>
+                                 </div>
+
+                                 <button
+                                     onClick={handleSetup2FA}
+                                     className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-xl transition-colors disabled:bg-slate-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                     disabled={twoFALoading}
+                                 >
+                                     {twoFALoading ? (
+                                         <>
+                                             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                                             <span>Configuration en cours...</span>
+                                         </>
+                                     ) : (
+                                         <>
+                                             <Shield className="w-5 h-5" />
+                                             <span>Activer la double authentification</span>
+                                         </>
+                                     )}
+                                 </button>
+                             </div>
+                         ) : (
+                             /* Setup 2FA - Scanner QR Code */
+                             <div className="space-y-6">
+                                 <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
+                                     <h3 className="font-bold text-slate-900 mb-4">Étape 1 : Scanner le QR code</h3>
+                                     <p className="text-sm text-slate-600 mb-4">
+                                         Utilisez votre application d'authentification (Google Authenticator, Authy, etc.) pour scanner ce code :
+                                     </p>
+                                     <div className="flex justify-center mb-4">
+                                         <img src={twoFAQRCode} alt="QR Code 2FA" className="w-64 h-64 border-4 border-white rounded-xl shadow-lg" />
+                                     </div>
+                                     <div className="bg-slate-900 p-4 rounded-lg">
+                                         <p className="text-xs text-slate-400 mb-1">Clé secrète (configuration manuelle) :</p>
+                                         <p className="font-mono text-sm text-cyan-400 break-all">{twoFASecret}</p>
+                                     </div>
+                                 </div>
+
+                                 <form onSubmit={handleVerify2FA} className="bg-slate-50 p-6 rounded-xl border border-slate-200">
+                                     <h3 className="font-bold text-slate-900 mb-4">Étape 2 : Vérifier le code</h3>
+                                     <p className="text-sm text-slate-600 mb-4">
+                                         Entrez le code à 6 chiffres généré par votre application :
+                                     </p>
+                                     <input
+                                         type="text"
+                                         value={twoFAVerifyCode}
+                                         onChange={(e) => setTwoFAVerifyCode(e.target.value)}
+                                         className="w-full p-4 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-green-500 outline-none font-mono text-center text-2xl tracking-widest mb-4"
+                                         placeholder="000000"
+                                         maxLength={6}
+                                         pattern="[0-9]{6}"
+                                         required
+                                         disabled={twoFALoading}
+                                     />
+                                     <div className="flex gap-3">
+                                         <button
+                                             type="button"
+                                             onClick={() => {
+                                                 setShowTwoFASetup(false);
+                                                 setTwoFAQRCode('');
+                                                 setTwoFASecret('');
+                                                 setTwoFAVerifyCode('');
+                                             }}
+                                             className="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-3 px-6 rounded-xl transition-colors"
+                                             disabled={twoFALoading}
+                                         >
+                                             Annuler
+                                         </button>
+                                         <button
+                                             type="submit"
+                                             className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-xl transition-colors disabled:bg-slate-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                             disabled={twoFALoading}
+                                         >
+                                             {twoFALoading ? (
+                                                 <>
+                                                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                                                     <span>Vérification...</span>
+                                                 </>
+                                             ) : (
+                                                 <>
+                                                     <CheckCircle2 className="w-5 h-5" />
+                                                     <span>Activer 2FA</span>
+                                                 </>
+                                             )}
+                                         </button>
+                                     </div>
+                                 </form>
+                             </div>
+                         )
+                     ) : (
+                         /* Désactiver 2FA */
+                         <form onSubmit={handleDisable2FA} className="space-y-6">
+                             <div className="bg-red-50 border border-red-200 p-6 rounded-xl">
+                                 <h3 className="font-bold text-red-900 mb-2">⚠️ Désactiver la double authentification</h3>
+                                 <p className="text-sm text-red-800">
+                                     Vous êtes sur le point de désactiver la double authentification. Votre compte sera moins sécurisé.
+                                 </p>
+                             </div>
+
+                             <div>
+                                 <label className="block text-sm font-bold text-slate-700 mb-2">
+                                     Entrez votre mot de passe pour confirmer
+                                 </label>
+                                 <input
+                                     type="password"
+                                     value={twoFADisablePassword}
+                                     onChange={(e) => setTwoFADisablePassword(e.target.value)}
+                                     className="w-full p-3 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 outline-none"
+                                     required
+                                     disabled={twoFALoading}
+                                 />
+                             </div>
+
+                             <button
+                                 type="submit"
+                                 className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-8 rounded-xl transition-colors disabled:bg-slate-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                 disabled={twoFALoading}
+                             >
+                                 {twoFALoading ? (
+                                     <>
+                                         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                                         <span>Désactivation...</span>
+                                     </>
+                                 ) : (
+                                     <>
+                                         <XCircle className="w-5 h-5" />
+                                         <span>Désactiver la double authentification</span>
+                                     </>
+                                 )}
+                             </button>
+                         </form>
+                     )}
+
+                     {twoFAError && (
+                         <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 mt-4">
+                             <XCircle className="w-5 h-5 flex-shrink-0" />
+                             <span className="text-sm font-semibold">{twoFAError}</span>
+                         </div>
+                     )}
+
+                     {twoFASuccess && (
+                         <div className="flex items-center gap-2 p-4 bg-green-50 border border-green-200 rounded-xl text-green-700 mt-4">
+                             <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+                             <span className="text-sm font-semibold">{twoFASuccess}</span>
+                         </div>
+                     )}
                  </div>
              </div>
          )}
