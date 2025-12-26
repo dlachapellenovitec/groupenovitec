@@ -592,6 +592,9 @@ app.delete('/api/incidents/:id', authenticateToken, async (req, res) => {
 
 // ============= ROUTES STATIC (FRONTEND) =============
 
+// Servir les images uploadées
+app.use('/images', express.static(path.join(__dirname, '../public/images')));
+
 app.use(express.static(path.join(__dirname, '../dist')));
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../dist', 'index.html'));
